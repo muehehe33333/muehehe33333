@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { ArrowDownRight, ArrowUpRight, Scale, Plus, Loader2, PieChart as PieIcon, TrendingDown, Receipt, Trash2, Calendar as CalendarIcon, Edit3, X, Download, Box, Check, Clock, CheckCircle2, Users } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, Scale, Plus, Loader2, Receipt, Trash2, Edit3, X, Download, Box, Check, Clock, Users } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 
 type Transaction = { id: string; type: 'income' | 'expense' | 'adjustment'; amount: number; description: string; category: string; transaction_date: string; };
@@ -18,7 +18,6 @@ export default function FinancialModule() {
   const [currentBalance, setCurrentBalance] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  // Form States
   const [activeFormTab, setActiveFormTab] = useState<'flow' | 'exact'>('flow');
   const [editingTrxId, setEditingTrxId] = useState<string | null>(null);
   const [flowType, setFlowType] = useState<'expense' | 'income'>('expense');
@@ -28,19 +27,16 @@ export default function FinancialModule() {
   const [category, setCategory] = useState('Makan/Minum');
   const [submitting, setSubmitting] = useState(false);
 
-  // Sub-modules Forms
   const [billName, setBillName] = useState(''); const [billAmount, setBillAmount] = useState(''); const [billDueDate, setBillDueDate] = useState('1');
   const [sandboxName, setSandboxName] = useState(''); const [sandboxPrice, setSandboxPrice] = useState(''); const [sandboxDays, setSandboxDays] = useState('3');
   const [debtName, setDebtName] = useState(''); const [debtAmount, setDebtAmount] = useState('');
 
-  // UI States
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const currentDate = new Date();
   const [calendarMonth, setCalendarMonth] = useState(currentDate.getMonth());
   const [calendarYear, setCalendarYear] = useState(currentDate.getFullYear());
   const [timeRange, setTimeRange] = useState<'7d' | '30d' | '6m' | '1y'>('7d');
   
-  // Analytics States
   const [chartData, setChartData] = useState<any[]>([]);
   const [categoryData, setCategoryData] = useState<any[]>([]);
   const [periodTotal, setPeriodTotal] = useState({ expense: 0, income: 0 });
@@ -100,7 +96,6 @@ export default function FinancialModule() {
     setLoading(false);
   };
 
-  // --- Handlers ---
   const resetForm = () => { setEditingTrxId(null); setAmount(''); setDescription(''); setDate(new Date().toISOString().split('T')[0]); setFlowType('expense'); setCategory(expenseCategories[0]); };
   
   const handleSubmitTransaction = async (e: React.FormEvent) => {
@@ -164,13 +159,11 @@ export default function FinancialModule() {
   return (
     <div className="space-y-6 pb-12 animate-in fade-in duration-500">
       
-      {/* HEADER */}
       <div className="bg-slate-900 text-white p-6 md:p-8 rounded-2xl shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div><p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Live Balance Dashboard</p><h2 className="text-4xl font-black">Rp {currentBalance.toLocaleString('id-ID')}</h2></div>
         <button className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white border border-slate-700 rounded-lg text-sm font-bold hover:bg-slate-700 transition-colors w-full sm:w-auto justify-center"><Download size={16} /> Ekspor CSV</button>
       </div>
 
-      {/* ARUS KAS & BUKU KAS */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm relative h-fit">
           <div className="flex border-b border-slate-200 mb-6">
@@ -222,7 +215,6 @@ export default function FinancialModule() {
         </div>
       </div>
 
-      {/* ANALITIK & KALENDER */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex flex-col">
           <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
@@ -293,10 +285,8 @@ export default function FinancialModule() {
         </div>
       </div>
 
-      {/* WIDGET TAMBAHAN (Kasbon, Sandbox, Tagihan) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* KASBON */}
         <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 shadow-sm">
           <div className="flex items-center gap-2 mb-6 border-b border-amber-100 pb-4"><Users size={18} className="text-amber-600" /><h3 className="font-bold text-lg text-amber-900">Buku Piutang</h3></div>
           <form onSubmit={handleSaveDebt} className="bg-white border border-amber-100 p-4 rounded-xl mb-4 space-y-3">
@@ -316,7 +306,6 @@ export default function FinancialModule() {
           </div>
         </div>
 
-        {/* SANDBOX */}
         <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
           <div className="flex items-center gap-2 mb-6 border-b border-slate-100 pb-4"><Box size={18} className="text-blue-500" /><h3 className="font-bold text-lg text-slate-800">Impulse Sandbox</h3></div>
           <form onSubmit={async (e) => { e.preventDefault(); const { data: { user } } = await supabase.auth.getUser(); if (user && sandboxName && sandboxPrice) { const d = new Date(); d.setDate(d.getDate() + parseInt(sandboxDays)); await supabase.from('impulse_sandbox').insert({ user_id: user.id, item_name: sandboxName, price: parseFloat(sandboxPrice.replace(/[^0-9]/g, '')), target_date: d.toISOString().split('T')[0] }); setSandboxName(''); setSandboxPrice(''); fetchData(); }}} className="bg-slate-50 border border-slate-200 p-4 rounded-xl mb-4 space-y-3">
@@ -342,7 +331,6 @@ export default function FinancialModule() {
           </div>
         </div>
 
-        {/* TAGIHAN TETAP (REVISI BEBAS BAYAR KAPAN SAJA) */}
         <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
           <div className="flex items-center gap-2 mb-6 border-b border-slate-100 pb-4"><Receipt size={18} className="text-slate-500" /><h3 className="font-bold text-lg text-slate-800">Tagihan Tetap</h3></div>
           
@@ -359,9 +347,7 @@ export default function FinancialModule() {
 
           <div className="space-y-3">
             {bills.map(bill => {
-              // Cek apakah sudah dibayar bulan ini (Hanya untuk indikator visual)
               const isPaid = bill.last_paid_month && (new Date(bill.last_paid_month).getMonth() === new Date().getMonth() && new Date(bill.last_paid_month).getFullYear() === new Date().getFullYear());
-              
               return (
               <div key={bill.id} className="bg-slate-50 border border-slate-200 p-3 rounded-xl flex flex-col gap-2">
                 <div className="flex justify-between items-start">
@@ -377,7 +363,6 @@ export default function FinancialModule() {
                     <span className="block text-[10px] text-slate-500 font-bold mb-1">Jatuh Tempo: Tgl {bill.due_date}</span>
                     {isPaid ? <span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded">✓ Selesai bln ini</span> : <span className="text-[10px] font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded">Belum bayar</span>}
                   </div>
-                  {/* Tombol Bayar selalu muncul dan bisa dieksekusi berkali-kali */}
                   <button onClick={async ()=>{
                     if(!window.confirm(`Catat pembayaran untuk ${bill.name}?`))return; 
                     const { data: { user } } = await supabase.auth.getUser(); 

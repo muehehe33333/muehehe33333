@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Loader2, Plus, Calendar as CalendarIcon, Clock, AlertCircle, CheckCircle2, Circle, ArrowRightCircle, Trash2, X } from 'lucide-react';
+import { Loader2, Plus, Calendar as CalendarIcon, AlertCircle, CheckCircle2, Circle, ArrowRightCircle, Trash2, X } from 'lucide-react';
 
 type EventType = 'tugas' | 'praktikum' | 'ujian' | 'bootcamp' | 'hackathon' | 'proyek' | 'lainnya';
 
@@ -76,7 +76,6 @@ export default function EventRegistry() {
     return days;
   };
 
-  // Helper Warna Kategori
   const getTypeColor = (type: string, isDot = false) => {
     switch (type) {
       case 'ujian': return isDot ? 'bg-purple-500' : 'bg-purple-100 text-purple-700';
@@ -90,14 +89,12 @@ export default function EventRegistry() {
   };
 
   const pendingEvents = events.filter(e => e.status !== 'completed');
-  const completedEvents = events.filter(e => e.status === 'completed');
 
   if (loading) return <div className="animate-pulse h-64 bg-slate-100 rounded-2xl flex items-center justify-center"><Loader2 className="animate-spin text-slate-400" /></div>;
 
   return (
     <div className="space-y-6 pb-12 animate-in fade-in duration-500">
       
-      {/* Header */}
       <div className="bg-slate-900 text-white p-6 md:p-8 rounded-2xl shadow-sm">
         <div className="flex items-center gap-3 mb-2">
           <CalendarIcon size={24} className="text-blue-400" />
@@ -106,10 +103,8 @@ export default function EventRegistry() {
         <p className="text-sm text-slate-400">Pusat manajemen tenggat waktu akademik, submission, dan proyek ekstrakurikuler.</p>
       </div>
 
-      {/* Grid Utama (Form & Radar) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Form Input */}
         <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm h-fit">
           <form onSubmit={handleAddEvent} className="space-y-4">
             <h4 className="font-bold text-sm uppercase tracking-wider text-slate-800 mb-4 border-b border-slate-100 pb-2">Tambah Agenda Baru</h4>
@@ -147,7 +142,6 @@ export default function EventRegistry() {
           </form>
         </div>
 
-        {/* Radar Tugas */}
         <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex flex-col h-[400px]">
           <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-2 shrink-0">
             <h3 className="font-bold text-sm uppercase tracking-widest text-slate-800">Radar Agenda Aktif</h3>
@@ -185,7 +179,6 @@ export default function EventRegistry() {
         </div>
       </div>
 
-      {/* Grid Bawah: Kalender Akademik */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
           <div className="flex justify-between items-center mb-6">
@@ -201,8 +194,6 @@ export default function EventRegistry() {
               day === null ? <div key={`empty-${idx}`} className="h-16"></div> : (
                 <button key={day.fullDate} onClick={() => setSelectedDate(day.fullDate)} className={`h-16 flex flex-col items-center justify-start pt-2 rounded-md border transition-all ${selectedDate === day.fullDate ? 'border-slate-800 shadow-md bg-slate-50' : 'border-slate-100 hover:border-slate-300'} ${day.events.length > 0 ? 'cursor-pointer' : 'opacity-70 cursor-default'}`}>
                   <span className={`text-sm font-bold ${selectedDate === day.fullDate ? 'text-slate-900' : 'text-slate-600'}`}>{day.date}</span>
-                  
-                  {/* Rendering Titik Warna Dinamis */}
                   <div className="flex flex-wrap justify-center gap-1 mt-2 px-1">
                     {day.events.slice(0,3).map(ev => (
                       <div key={ev.id} className={`w-2 h-2 rounded-full ${ev.status === 'completed' ? 'bg-emerald-400' : getTypeColor(ev.type, true)}`} title={ev.title}></div>
@@ -214,7 +205,6 @@ export default function EventRegistry() {
             ))}
           </div>
 
-          {/* Legenda Kategori Kalender */}
           <div className="mt-8 pt-4 border-t border-slate-100 flex flex-wrap justify-center gap-x-4 gap-y-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
             <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-slate-400"></div> Tugas</div>
             <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-amber-400"></div> Praktikum</div>
