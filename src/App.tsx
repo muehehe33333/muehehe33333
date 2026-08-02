@@ -1,122 +1,110 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './lib/supabase';
-import type { Session } from '@supabase/supabase-js';
-import { Globe } from 'lucide-react';
-
-// Impor semua modul terpisah di sini
-import Sidebar from './components/Sidebar';
-import Login from './Login';
-import FinancialModule from './components/FinancialModule';
+import Auth from './components/Auth';
 import ExecutiveDashboard from './components/ExecutiveDashboard';
+import FinancialModule from './components/FinancialModule';
 import EventRegistry from './components/EventRegistry';
 import ContactDirectory from './components/ContactDirectory';
+import { LayoutDashboard, Wallet, Calendar, Users, LogOut, Menu, X, Command } from 'lucide-react';
 
-function App() {
-  const [currentLang, setCurrentLang] = useState<'ID' | 'EN'>('ID');
-  const [session, setSession] = useState<Session | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  
-  // State untuk melacak menu apa yang sedang aktif di Sidebar
-  const [activeView, setActiveView] = useState('dashboard');
+export default function App() {
+  const [session, setSession] = useState<any>(null);
+  const [activeView, setActiveView] = useState<'dashboard' | 'finance' | 'events' | 'network'>('dashboard');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setIsLoading(false);
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-
+    supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => setSession(session));
     return () => subscription.unsubscribe();
   }, []);
 
-  if (isLoading) {
-    return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-mono text-sm text-slate-500">Initializing Secure Environment...</div>;
-  }
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+  };
 
-  if (!session) {
-    return <Login />;
-  }
+  const navItems = [
+    { id: 'dashboard', label: 'Executive Dashboard', icon: <LayoutDashboard size={20} /> },
+    { id: 'finance', label: 'Financial Metrics', icon: <Wallet size={20} /> },
+    { id: 'events', label: 'Event Registry', icon: <Calendar size={20} /> },
+    { id: 'network', label: 'Contact Directory', icon: <Users size={20} /> }
+  ];
+
+  if (!session) return <Auth />;
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50 font-sans text-slate-900">
+    <div className="relative flex h-screen bg-slate-50 overflow-hidden font-sans text-slate-900">
       
-      {/* Sidebar Kontrol Navigasi */}
-      <Sidebar activeView={activeView} setActiveView={setActiveView} />
-      
-      <main className="flex-1 flex flex-col h-full overflow-hidden">
-        
-        {/* Topbar Statis */}
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 shrink-0 z-40">
-          <div className="text-sm font-medium text-slate-500">
-            {currentLang === 'ID' ? 'Area Kerja Utama' : 'Primary Workspace'}
+      {/* 1. BACKDROP OVERLAY (Latar Hitam Transparan saat Sidebar Terbuka) */}
+      {isSidebarOpen && (
+        <div 
+          onClick={() => setIsSidebarOpen(false)} 
+          className="fixed inset-0 bg-slate-900/60 z-40 transition-opacity backdrop-blur-sm lg:hidden"
+        />
+      )}
+
+      {/* 2. SIDEBAR (Off-Canvas Drawer) */}
+      <div className={`fixed inset-y-0 left-0 z-50 w-72 bg-slate-900 text-slate-300 transform transition-transform duration-300 ease-in-out shadow-2xl flex flex-col ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="p-6 border-b border-slate-800 flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <div className="bg-emerald-500 p-2 rounded-lg text-slate-900"><Command size={20} /></div>
+            <h2 className="text-xl font-black text-white tracking-tight">Personal HQ</h2>
           </div>
-          <button onClick={() => setCurrentLang(currentLang === 'ID' ? 'EN' : 'ID')} className="flex items-center gap-2 text-xs font-bold border border-slate-200 px-3 py-1.5 rounded-md hover:bg-slate-100 transition-colors">
-            <Globe size={14} /> {currentLang}
+          <button onClick={() => setIsSidebarOpen(false)} className="text-slate-400 hover:text-white p-1 rounded-md transition-colors"><X size={20} /></button>
+        </div>
+
+        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+          {navItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => { setActiveView(item.id as any); setIsSidebarOpen(false); }}
+              className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all font-bold text-sm ${
+                activeView === item.id ? 'bg-slate-800 text-white shadow-md' : 'hover:bg-slate-800/50 hover:text-white'
+              }`}
+            >
+              {item.icon} {item.label}
+            </button>
+          ))}
+        </nav>
+
+        <div className="p-4 border-t border-slate-800">
+          <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-colors rounded-xl text-sm font-bold">
+            <LogOut size={16} /> Keluar Sistem
           </button>
-        </header>
+        </div>
+      </div>
 
-        {/* Area Konten Dinamis (Bisa di-scroll) */}
-        <div className="flex-1 overflow-y-auto p-8 md:p-12 w-full">
-          <div className="max-w-6xl mx-auto">
-            
-            {/* VIEW 1: DASBOR EKSEKUTIF */}
-            {activeView === 'dashboard' && (
-              <div className="space-y-8 animate-in fade-in duration-500">
-                <section>
-                  <h1 className="text-3xl md:text-4xl font-black tracking-tight mb-2">Executive Dashboard</h1>
-                  <p className="text-slate-500 text-sm">System operational overview and predictive analytics.</p>
-                </section>
-                
-                {/* Memanggil file komponen ExecutiveDashboard.tsx */}
-                <ExecutiveDashboard />
-              </div>
-            )}
-
-            {/* VIEW 2: MODUL FINANSIAL */}
-            {activeView === 'financial' && (
-              <div className="space-y-8 animate-in fade-in duration-500">
-                <section>
-                  <h1 className="text-3xl font-black tracking-tight mb-2">Financial Metrics</h1>
-                  <p className="text-slate-500 text-sm">Pencatatan arus kas harian dan penyesuaian saldo.</p>
-                </section>
-                
-                {/* Memanggil file komponen FinancialModule.tsx */}
-                <FinancialModule />
-              </div>
-            )}
-
-            {/* VIEW 3: EVENT REGISTRY (JADWAL) */}
-            {activeView === 'events' && (
-              <div className="space-y-8 animate-in fade-in duration-500">
-                <section>
-                  <h1 className="text-3xl md:text-4xl font-black tracking-tight mb-2">Event Registry</h1>
-                  <p className="text-slate-500 text-sm">Pusat komando manajemen tugas, praktikum, dan kalender akademik.</p>
-                </section>
-                <EventRegistry />
-              </div>
-            )}
-
-            {/* VIEW 4: CONTACT DIRECTORY */}
-            {activeView === 'network' && (
-              <div className="space-y-8 animate-in fade-in duration-500">
-                <section>
-                  <h1 className="text-3xl md:text-4xl font-black tracking-tight mb-2">Contact Directory</h1>
-                  <p className="text-slate-500 text-sm">Pusat manajemen relasi, kating, dosen, dan jejaring perantauan.</p>
-                </section>
-                <ContactDirectory />
-              </div>
-            )}
-
+      {/* 3. MAIN CONTENT AREA */}
+      <div className="flex-1 flex flex-col h-full w-full overflow-hidden">
+        
+        {/* Topbar Navigation */}
+        <div className="bg-white/80 backdrop-blur-md border-b border-slate-200 px-4 md:px-8 py-4 flex items-center justify-between sticky top-0 z-30 shadow-sm">
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={() => setIsSidebarOpen(true)} 
+              className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors shadow-sm"
+            >
+              <Menu size={20} />
+            </button>
+            <h1 className="font-black text-lg md:text-xl text-slate-900 tracking-tight capitalize">
+              {navItems.find(i => i.id === activeView)?.label}
+            </h1>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="hidden md:inline-block px-3 py-1 bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase tracking-widest rounded-full">System Online</span>
           </div>
         </div>
-      </main>
+
+        {/* Dynamic View Injection */}
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 relative">
+          <div className="max-w-7xl mx-auto">
+            {activeView === 'dashboard' && <ExecutiveDashboard />}
+            {activeView === 'finance' && <FinancialModule />}
+            {activeView === 'events' && <EventRegistry />}
+            {activeView === 'network' && <ContactDirectory />}
+          </div>
+        </div>
+        
+      </div>
     </div>
   );
 }
-
-export default App;
