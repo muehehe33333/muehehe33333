@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { ArrowDownRight, ArrowUpRight, Scale, Plus, Loader2, Receipt, Trash2, Edit3, X, Download, Box, Check, Clock, Users } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, Scale, Plus, Loader2, Receipt, Trash2, Edit3, X, Download, Box, Check, Clock, Users, Wallet } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 
 type Transaction = { id: string; type: 'income' | 'expense' | 'adjustment'; amount: number; description: string; category: string; transaction_date: string; };
@@ -8,7 +8,7 @@ type Bill = { id: string; name: string; amount: number; due_date: number; catego
 type ImpulseItem = { id: string; item_name: string; price: number; target_date: string; status: string; };
 type Debt = { id: string; borrower_name: string; amount: number; status: string; created_at: string; };
 
-const PIE_COLORS = ['#0f172a', '#334155', '#475569', '#64748b', '#94a3b8', '#cbd5e1'];
+const PIE_COLORS = ['#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe', '#dbeafe', '#eff6ff'];
 
 export default function FinancialModule() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -31,10 +31,6 @@ export default function FinancialModule() {
   const [sandboxName, setSandboxName] = useState(''); const [sandboxPrice, setSandboxPrice] = useState(''); const [sandboxDays, setSandboxDays] = useState('3');
   const [debtName, setDebtName] = useState(''); const [debtAmount, setDebtAmount] = useState('');
 
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const currentDate = new Date();
-  const [calendarMonth, setCalendarMonth] = useState(currentDate.getMonth());
-  const [calendarYear, setCalendarYear] = useState(currentDate.getFullYear());
   const [timeRange, setTimeRange] = useState<'7d' | '30d' | '6m' | '1y'>('7d');
   
   const [chartData, setChartData] = useState<any[]>([]);
@@ -141,73 +137,79 @@ export default function FinancialModule() {
     }
   };
 
-  const getDaysInMonth = (y: number, m: number) => new Date(y, m + 1, 0).getDate();
-  const getFirstDayOfMonth = (y: number, m: number) => new Date(y, m, 1).getDay();
-  const generateCalendarDays = () => {
-    const days = []; for (let i = 0; i < getFirstDayOfMonth(calendarYear, calendarMonth); i++) days.push(null);
-    for (let i = 1; i <= getDaysInMonth(calendarYear, calendarMonth); i++) {
-      const d = `${calendarYear}-${String(calendarMonth + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
-      const dayTrx = transactions.filter(t => t.transaction_date === d && t.category !== 'System');
-      const expense = dayTrx.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
-      days.push({ date: i, fullDate: d, hasTransactions: dayTrx.length > 0, totalExpense: expense, intensity: expense > 100000 ? 'bg-red-500' : expense > 0 ? 'bg-red-300' : dayTrx.filter(t=>t.type==='income').length > 0 ? 'bg-emerald-400' : 'bg-slate-100' });
-    }
-    return days;
-  };
-
-  if (loading) return <div className="animate-pulse h-64 bg-slate-100 rounded-2xl flex items-center justify-center"><Loader2 className="animate-spin text-slate-400" /></div>;
+  if (loading) return <div className="h-64 flex items-center justify-center"><Loader2 className="animate-spin text-slate-400" size={32} /></div>;
 
   return (
-    <div className="space-y-6 pb-12 animate-in fade-in duration-500">
+    <div className="space-y-6">
       
-      <div className="bg-slate-900 text-white p-6 md:p-8 rounded-2xl shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div><p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Live Balance Dashboard</p><h2 className="text-4xl font-black">Rp {currentBalance.toLocaleString('id-ID')}</h2></div>
-        <button className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white border border-slate-700 rounded-lg text-sm font-bold hover:bg-slate-700 transition-colors w-full sm:w-auto justify-center"><Download size={16} /> Ekspor CSV</button>
+      {/* HEADER: LIVE BALANCE */}
+      <div className="bg-slate-900 text-white p-7 md:p-8 rounded-[2rem] shadow-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-6 overflow-hidden relative">
+        <div className="relative z-10">
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Live Balance Dashboard</p>
+          <h2 className="text-4xl md:text-5xl font-black tracking-tight">Rp {currentBalance.toLocaleString('id-ID')}</h2>
+        </div>
+        <button className="relative z-10 flex items-center gap-2 px-5 py-3 bg-slate-800 text-white border border-slate-700 rounded-2xl text-sm font-bold hover:bg-slate-700 transition-colors w-full md:w-auto justify-center">
+          <Download size={18} /> Ekspor CSV
+        </button>
+        <div className="absolute -right-10 -top-10 opacity-10 pointer-events-none">
+          <Wallet size={200} />
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm relative h-fit">
-          <div className="flex border-b border-slate-200 mb-6">
-            <button onClick={() => { setActiveFormTab('flow'); if(editingTrxId && activeFormTab==='exact') resetForm(); }} className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider ${activeFormTab === 'flow' ? 'border-b-2 border-black text-black' : 'text-slate-400'}`}>Arus Kas</button>
-            <button onClick={() => { setActiveFormTab('exact'); if(editingTrxId && activeFormTab==='flow') resetForm(); }} className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider ${activeFormTab === 'exact' ? 'border-b-2 border-black text-black' : 'text-slate-400'}`}>Set Exact</button>
+      {/* INPUT TRANSAKSI & BUKU KAS (GRID 2 KOLOM) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        {/* FORM INPUT */}
+        <div className="bg-white border border-slate-100 rounded-[2rem] p-7 shadow-sm h-fit">
+          <div className="flex bg-slate-50 p-1 rounded-2xl mb-6">
+            <button onClick={() => { setActiveFormTab('flow'); if(editingTrxId && activeFormTab==='exact') resetForm(); }} className={`flex-1 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl transition-all ${activeFormTab === 'flow' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}>Arus Kas</button>
+            <button onClick={() => { setActiveFormTab('exact'); if(editingTrxId && activeFormTab==='flow') resetForm(); }} className={`flex-1 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl transition-all ${activeFormTab === 'exact' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}>Set Exact</button>
           </div>
           <form onSubmit={handleSubmitTransaction} className="space-y-4">
             {activeFormTab === 'flow' && (
               <>
-                <div className="grid grid-cols-2 gap-2 bg-slate-100 p-1 rounded-md">
-                  <button type="button" onClick={() => {setFlowType('expense'); setCategory(expenseCategories[0]);}} className={`py-1.5 text-xs font-bold rounded ${flowType === 'expense' ? 'bg-white shadow text-black' : 'text-slate-500'}`}>Keluar</button>
-                  <button type="button" onClick={() => {setFlowType('income'); setCategory(incomeCategories[0]);}} className={`py-1.5 text-xs font-bold rounded ${flowType === 'income' ? 'bg-white shadow text-black' : 'text-slate-500'}`}>Masuk</button>
+                <div className="grid grid-cols-2 gap-3 mb-2">
+                  <button type="button" onClick={() => {setFlowType('expense'); setCategory(expenseCategories[0]);}} className={`py-3 text-sm font-bold rounded-xl border-2 transition-all ${flowType === 'expense' ? 'border-rose-500 bg-rose-50 text-rose-700' : 'border-transparent bg-slate-50 text-slate-500 hover:bg-slate-100'}`}>Uang Keluar</button>
+                  <button type="button" onClick={() => {setFlowType('income'); setCategory(incomeCategories[0]);}} className={`py-3 text-sm font-bold rounded-xl border-2 transition-all ${flowType === 'income' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-transparent bg-slate-50 text-slate-500 hover:bg-slate-100'}`}>Uang Masuk</button>
                 </div>
-                <div><label className="block text-xs font-bold text-slate-700 mb-1">Tanggal</label><input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full px-3 py-2 border rounded-md text-sm bg-slate-50" required /></div>
-                <div><label className="block text-xs font-bold text-slate-700 mb-1">Nominal (Rp)</label><input type="text" inputMode="numeric" value={amount ? Number(amount.replace(/[^0-9]/g, '')).toLocaleString('id-ID') : ''} onChange={(e) => setAmount(e.target.value)} placeholder="0" className="w-full px-3 py-2 border rounded-md text-sm font-mono text-lg bg-slate-50" required /></div>
-                <div><label className="block text-xs font-bold text-slate-700 mb-1">Kategori</label><select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full px-3 py-2 border rounded-md text-sm bg-slate-50">{(flowType === 'expense' ? expenseCategories : incomeCategories).map(c => <option key={c} value={c}>{c}</option>)}</select></div>
-                <div><label className="block text-xs font-bold text-slate-700 mb-1">Keterangan</label><input type="text" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Nama Barang" className="w-full px-3 py-2 border rounded-md text-sm bg-slate-50" required /></div>
+                <div><label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">Tanggal</label><input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-100" required /></div>
+                <div><label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">Nominal (Rp)</label><input type="text" inputMode="numeric" value={amount ? Number(amount.replace(/[^0-9]/g, '')).toLocaleString('id-ID') : ''} onChange={(e) => setAmount(e.target.value)} placeholder="0" className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-lg font-black font-mono focus:ring-2 focus:ring-blue-100" required /></div>
+                <div><label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">Kategori</label><select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-100">{(flowType === 'expense' ? expenseCategories : incomeCategories).map(c => <option key={c} value={c}>{c}</option>)}</select></div>
+                <div><label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">Keterangan</label><input type="text" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Misal: Makan Siang" className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-100" required /></div>
               </>
             )}
             {activeFormTab === 'exact' && (
               <>
-                <div className="bg-blue-50 text-blue-800 text-xs p-3 rounded-md mb-4">Set saldo sinkron dengan isi dompet.</div>
-                <div><label className="block text-xs font-bold text-slate-700 mb-1">Tanggal</label><input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full px-3 py-2 border rounded-md text-sm bg-slate-50" required /></div>
-                <div><label className="block text-xs font-bold text-slate-700 mb-1">Saldo Riil Saat Ini (Rp)</label><input type="text" inputMode="numeric" value={amount ? Number(amount.replace(/[^0-9]/g, '')).toLocaleString('id-ID') : ''} onChange={(e) => setAmount(e.target.value)} className="w-full px-3 py-2 border rounded-md text-sm font-mono text-lg bg-slate-50" required /></div>
+                <div className="bg-blue-50 text-blue-800 text-xs p-4 rounded-xl mb-4 leading-relaxed font-medium">Gunakan fitur ini jika ada selisih perhitungan, untuk menyamakan saldo sistem dengan isi dompet asli Anda.</div>
+                <div><label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">Tanggal</label><input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-100" required /></div>
+                <div><label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">Saldo Riil Saat Ini (Rp)</label><input type="text" inputMode="numeric" value={amount ? Number(amount.replace(/[^0-9]/g, '')).toLocaleString('id-ID') : ''} onChange={(e) => setAmount(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-lg font-black font-mono focus:ring-2 focus:ring-blue-100" required /></div>
               </>
             )}
-            <button type="submit" disabled={submitting} className={`w-full text-white font-bold py-3 rounded-md transition mt-4 text-sm flex justify-center gap-2 ${editingTrxId ? 'bg-yellow-600' : 'bg-slate-900 hover:bg-black'}`}>
-              {submitting ? <Loader2 size={16} className="animate-spin" /> : editingTrxId ? <Edit3 size={16} /> : <Plus size={16} />} {editingTrxId ? 'Simpan Edit' : 'Simpan Transaksi'}
+            <button type="submit" disabled={submitting} className={`w-full text-white font-bold py-3.5 rounded-xl transition-all mt-6 text-sm flex justify-center items-center gap-2 ${editingTrxId ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-500/20 shadow-lg' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-600/20 shadow-lg'}`}>
+              {submitting ? <Loader2 size={18} className="animate-spin" /> : editingTrxId ? <Edit3 size={18} /> : <Plus size={18} />} {editingTrxId ? 'Simpan Perubahan' : 'Catat Transaksi'}
             </button>
           </form>
         </div>
 
-        <div className="lg:col-span-3 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex flex-col h-[550px]">
-          <h3 className="font-bold text-sm uppercase tracking-widest text-slate-400 mb-4 border-b border-slate-100 pb-2 shrink-0">Buku Kas (Editable)</h3>
-          <div className="space-y-3 overflow-y-auto flex-1 pr-2">
-            {transactions.map((trx) => (
-              <div key={trx.id} className="flex justify-between items-center p-3 bg-slate-50 border border-slate-200 rounded-lg group hover:border-slate-300 hover:bg-white transition-colors">
-                <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-md ${trx.type === 'expense' ? 'bg-red-100 text-red-600' : trx.type === 'income' ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-800 text-white'}`}>{trx.type === 'expense' ? <ArrowDownRight size={16} /> : trx.type === 'income' ? <ArrowUpRight size={16} /> : <Scale size={16} />}</div>
-                  <div><p className="font-bold text-sm text-slate-900 line-clamp-1">{trx.description}</p><p className="text-xs font-mono text-slate-500">{trx.transaction_date} • {trx.category}</p></div>
+        {/* BUKU KAS (HISTORY) */}
+        <div className="bg-white border border-slate-100 rounded-[2rem] p-7 shadow-sm flex flex-col h-[550px]">
+          <h3 className="font-bold text-sm uppercase tracking-widest text-slate-400 mb-4 border-b border-slate-50 pb-4 shrink-0">Buku Kas Terbaru</h3>
+          <div className="space-y-3 overflow-y-auto flex-1 pr-2 [&::-webkit-scrollbar]:hidden">
+            {transactions.length === 0 ? <p className="text-center text-sm text-slate-400 mt-10">Belum ada transaksi.</p> : transactions.map((trx) => (
+              <div key={trx.id} className="flex justify-between items-center p-4 bg-slate-50/50 hover:bg-slate-50 border border-transparent hover:border-slate-100 rounded-2xl group transition-all">
+                <div className="flex items-center gap-4">
+                  <div className={`p-2.5 rounded-xl ${trx.type === 'expense' ? 'bg-rose-100 text-rose-600' : trx.type === 'income' ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-800 text-white'}`}>{trx.type === 'expense' ? <ArrowDownRight size={18} /> : trx.type === 'income' ? <ArrowUpRight size={18} /> : <Scale size={18} />}</div>
+                  <div>
+                    <p className="font-bold text-sm text-slate-800 line-clamp-1">{trx.description}</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase mt-1">{trx.transaction_date} • {trx.category}</p>
+                  </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className={`font-mono font-bold text-sm ${trx.type === 'expense' ? 'text-red-600' : trx.type === 'income' ? 'text-emerald-600' : 'text-slate-900'}`}>{trx.type === 'expense' ? '-' : trx.type === 'income' ? '+' : '='} Rp {Number(trx.amount).toLocaleString('id-ID')}</div>
-                  <div className="flex gap-1 md:opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={() => {setActiveFormTab(trx.type === 'adjustment' ? 'exact' : 'flow'); setEditingTrxId(trx.id); setFlowType(trx.type === 'adjustment' ? 'expense' : trx.type); setAmount(String(trx.amount)); setDescription(trx.description); setDate(trx.transaction_date); setCategory(trx.category); window.scrollTo({ top: 0, behavior: 'smooth' });}} className="text-slate-400 hover:text-blue-600 p-1 rounded hover:bg-slate-100"><Edit3 size={14} /></button><button onClick={() => handleDeleteTransaction(trx.id)} className="text-slate-400 hover:text-red-600 p-1 rounded hover:bg-slate-100"><Trash2 size={14} /></button></div>
+                  <div className={`font-black tracking-tight text-sm ${trx.type === 'expense' ? 'text-rose-600' : trx.type === 'income' ? 'text-emerald-600' : 'text-slate-800'}`}>{trx.type === 'expense' ? '-' : trx.type === 'income' ? '+' : '='} Rp {Number(trx.amount).toLocaleString('id-ID')}</div>
+                  <div className="flex gap-1 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => {setActiveFormTab(trx.type === 'adjustment' ? 'exact' : 'flow'); setEditingTrxId(trx.id); setFlowType(trx.type === 'adjustment' ? 'expense' : trx.type); setAmount(String(trx.amount)); setDescription(trx.description); setDate(trx.transaction_date); setCategory(trx.category); window.scrollTo({ top: 0, behavior: 'smooth' });}} className="text-slate-400 hover:text-blue-600 p-1.5 rounded-lg hover:bg-blue-50"><Edit3 size={16} /></button>
+                    <button onClick={() => handleDeleteTransaction(trx.id)} className="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50"><Trash2 size={16} /></button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -215,154 +217,155 @@ export default function FinancialModule() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex flex-col">
-          <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
-            <h3 className="font-bold text-lg text-slate-800">Analisis Periode</h3>
-            <select value={timeRange} onChange={(e) => setTimeRange(e.target.value as any)} className="bg-slate-100 text-xs font-bold p-2 rounded-md border-none outline-none cursor-pointer">
-              <option value="7d">7 Hari</option><option value="30d">30 Hari</option><option value="6m">6 Bulan</option><option value="1y">1 Tahun</option>
-            </select>
-          </div>
-          
-          <div className="flex justify-between gap-4 mb-6">
-            <div className="flex-1 bg-red-50 p-3 rounded-xl border border-red-100">
-              <p className="text-[10px] font-bold text-red-500 uppercase tracking-wider mb-1">Total Keluar</p>
-              <p className="font-mono font-black text-red-700 text-lg">Rp {periodTotal.expense.toLocaleString('id-ID')}</p>
-            </div>
-            <div className="flex-1 bg-emerald-50 p-3 rounded-xl border border-emerald-100">
-              <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-1">Total Masuk</p>
-              <p className="font-mono font-black text-emerald-700 text-lg">Rp {periodTotal.income.toLocaleString('id-ID')}</p>
-            </div>
-          </div>
-
-          <div className="h-40 w-full mb-6"><ResponsiveContainer width="100%" height="100%"><BarChart data={chartData}><XAxis dataKey="date" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false}/><YAxis stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v)=>`Rp${v/1000}k`}/><Tooltip cursor={{fill:'#f1f5f9'}} contentStyle={{borderRadius:'8px',border:'none'}}/><Bar dataKey="Total" radius={[4,4,0,0]} fill="#0f172a" /></BarChart></ResponsiveContainer></div>
-          
-          <div className="flex-1 flex flex-col sm:flex-row items-center border-t border-slate-100 pt-4">
-            <div className="h-32 w-full sm:w-1/2"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={categoryData} innerRadius={40} outerRadius={60} paddingAngle={2} dataKey="value" stroke="none">{categoryData.map((_, i) => (<Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />))}</Pie><Tooltip contentStyle={{ borderRadius:'8px', border:'none' }}/></PieChart></ResponsiveContainer></div>
-            <div className="w-full sm:w-1/2 mt-4 sm:mt-0 space-y-2">
-              {categoryData.slice(0,4).map((entry, index) => (
-                <div key={index} className="flex items-center gap-2"><div className="w-2 h-2 rounded-full shrink-0" style={{backgroundColor:PIE_COLORS[index%PIE_COLORS.length]}}></div><div className="flex-1 truncate text-xs text-slate-600">{entry.name}</div><div className="text-xs font-bold text-slate-900">Rp {Math.round(entry.value/1000)}k</div></div>
-              ))}
-            </div>
-          </div>
+      {/* ANALISIS PERIODE (FULL WIDTH KARTU) */}
+      <div className="bg-white border border-slate-100 rounded-[2rem] p-7 shadow-sm flex flex-col">
+        <div className="flex justify-between items-center mb-8 border-b border-slate-50 pb-4">
+          <h3 className="font-bold text-lg text-slate-800">Analisis Finansial</h3>
+          <select value={timeRange} onChange={(e) => setTimeRange(e.target.value as any)} className="bg-slate-50 text-xs font-bold px-4 py-2 rounded-xl border-none outline-none cursor-pointer text-slate-600">
+            <option value="7d">7 Hari Terakhir</option><option value="30d">30 Hari Terakhir</option><option value="6m">6 Bulan Terakhir</option><option value="1y">1 Tahun Terakhir</option>
+          </select>
         </div>
-
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-          <h3 className="font-bold text-lg text-slate-800 mb-6 border-b border-slate-100 pb-4">Kalender Harian</h3>
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="font-bold text-md text-slate-600">{['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'][calendarMonth]} {calendarYear}</h3>
-            <div className="flex gap-2">
-              <button onClick={() => { if(calendarMonth===0){setCalendarMonth(11); setCalendarYear(y=>y-1)} else setCalendarMonth(m=>m-1) }} className="p-1.5 border rounded hover:bg-slate-50">&lt;</button>
-              <button onClick={() => { if(calendarMonth===11){setCalendarMonth(0); setCalendarYear(y=>y+1)} else setCalendarMonth(m=>m+1) }} className="p-1.5 border rounded hover:bg-slate-50">&gt;</button>
-            </div>
-          </div>
-          <div className="grid grid-cols-7 gap-1 text-center mb-2">{['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'].map(d => <div key={d} className="text-xs font-bold text-slate-400 py-1">{d}</div>)}</div>
-          <div className="grid grid-cols-7 gap-2">
-            {generateCalendarDays().map((day, idx) => (
-              day === null ? <div key={`empty-${idx}`} className="h-14"></div> : (
-                <button key={day.fullDate} onClick={() => setSelectedDate(day.fullDate)} className={`h-14 flex flex-col items-center justify-center rounded-md border transition-all ${selectedDate === day.fullDate ? 'border-black shadow-md bg-slate-50' : 'border-slate-100 hover:border-slate-300'} ${day.hasTransactions ? 'cursor-pointer' : 'opacity-50 cursor-default'}`}>
-                  <span className={`text-sm font-bold ${selectedDate === day.fullDate ? 'text-black' : 'text-slate-600'}`}>{day.date}</span>
-                  {day.hasTransactions && <div className={`w-2.5 h-2.5 rounded-full mt-1 ${day.intensity}`}></div>}
-                </button>
-              )
-            ))}
-          </div>
-          
-          {selectedDate && (
-            <div className="mt-4 p-4 bg-slate-50 border border-slate-200 rounded-xl max-h-56 overflow-y-auto">
-              <div className="flex justify-between items-center mb-3 pb-2 border-b border-slate-200"><span className="text-xs font-bold font-mono">{selectedDate}</span><button onClick={()=>setSelectedDate(null)}><X size={14}/></button></div>
-              <div className="flex gap-4 mb-4">
-                <div className="flex-1"><p className="text-[10px] font-bold text-slate-400 uppercase">Keluar</p><p className="font-mono text-sm font-bold text-red-600">Rp {transactions.filter(t => t.transaction_date === selectedDate && t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0).toLocaleString('id-ID')}</p></div>
-                <div className="flex-1"><p className="text-[10px] font-bold text-slate-400 uppercase">Masuk</p><p className="font-mono text-sm font-bold text-emerald-600">Rp {transactions.filter(t => t.transaction_date === selectedDate && t.type === 'income').reduce((s, t) => s + Number(t.amount), 0).toLocaleString('id-ID')}</p></div>
-              </div>
-              {transactions.filter(t => t.transaction_date === selectedDate).map(trx => (
-                <div key={trx.id} className="flex justify-between text-xs mb-2 bg-white p-2 border border-slate-100 rounded">
-                  <span className="truncate pr-2 font-medium">{trx.description}</span><span className={`font-mono font-bold ${trx.type === 'expense' ? 'text-red-600' : 'text-emerald-600'}`}>{trx.type==='expense'?'-':'+'} {Number(trx.amount).toLocaleString('id-ID')}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 shadow-sm">
-          <div className="flex items-center gap-2 mb-6 border-b border-amber-100 pb-4"><Users size={18} className="text-amber-600" /><h3 className="font-bold text-lg text-amber-900">Buku Piutang</h3></div>
-          <form onSubmit={handleSaveDebt} className="bg-white border border-amber-100 p-4 rounded-xl mb-4 space-y-3">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          
+          <div className="lg:col-span-2 space-y-6">
+            <div className="flex gap-4">
+              <div className="flex-1 bg-rose-50/50 p-5 rounded-2xl border border-rose-100">
+                <p className="text-[10px] font-bold text-rose-500 uppercase tracking-wider mb-1">Total Keluar</p>
+                <p className="font-black tracking-tight text-rose-700 text-xl">Rp {periodTotal.expense.toLocaleString('id-ID')}</p>
+              </div>
+              <div className="flex-1 bg-emerald-50/50 p-5 rounded-2xl border border-emerald-100">
+                <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-1">Total Masuk</p>
+                <p className="font-black tracking-tight text-emerald-700 text-xl">Rp {periodTotal.income.toLocaleString('id-ID')}</p>
+              </div>
+            </div>
+            <div className="h-48 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData}>
+                  <XAxis dataKey="date" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false}/>
+                  <YAxis stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v)=>`Rp${v/1000}k`}/>
+                  <Tooltip cursor={{fill:'#f8fafc'}} contentStyle={{borderRadius:'16px',border:'none',boxShadow:'0 4px 20px rgba(0,0,0,0.05)'}}/>
+                  <Bar dataKey="Total" radius={[6,6,0,0]} fill="#3b82f6" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          <div className="flex flex-col border-t lg:border-t-0 lg:border-l border-slate-50 pt-6 lg:pt-0 lg:pl-8">
+            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Distribusi Kategori</h4>
+            <div className="h-40 w-full mb-4">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={categoryData} innerRadius={50} outerRadius={70} paddingAngle={4} dataKey="value" stroke="none">
+                    {categoryData.map((_, i) => (<Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />))}
+                  </Pie>
+                  <Tooltip contentStyle={{ borderRadius:'16px', border:'none', boxShadow:'0 4px 20px rgba(0,0,0,0.05)' }}/>
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="space-y-3 overflow-y-auto max-h-32 pr-2 [&::-webkit-scrollbar]:hidden">
+              {categoryData.length === 0 ? <p className="text-xs text-slate-400 text-center">Data kosong.</p> : categoryData.map((entry, index) => (
+                <div key={index} className="flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{backgroundColor:PIE_COLORS[index%PIE_COLORS.length]}}></div>
+                    <div className="truncate text-xs font-semibold text-slate-600">{entry.name}</div>
+                  </div>
+                  <div className="text-xs font-black tracking-tight text-slate-800">Rp {Math.round(entry.value/1000)}k</div>
+                </div>
+              ))}
+            </div>
+          </div>
+          
+        </div>
+      </div>
+
+      {/* MINI MODUL: PIUTANG, SANDBOX, TAGIHAN */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        {/* BUKU PIUTANG */}
+        <div className="bg-indigo-50/30 border border-indigo-100 rounded-[2rem] p-6 shadow-sm flex flex-col">
+          <div className="flex items-center gap-3 mb-6"><div className="p-2 bg-indigo-100 rounded-xl"><Users size={18} className="text-indigo-600" /></div><h3 className="font-bold text-base text-indigo-900">Buku Piutang</h3></div>
+          <form onSubmit={handleSaveDebt} className="bg-white border border-indigo-50 p-4 rounded-2xl mb-4 space-y-3 shadow-sm">
              <div className="grid grid-cols-1 gap-2">
-               <input type="text" value={debtName} onChange={(e)=>setDebtName(e.target.value)} placeholder="Nama Teman" className="w-full px-2 py-1.5 border rounded-md text-xs bg-slate-50" required />
-               <input type="text" inputMode="numeric" value={debtAmount ? Number(debtAmount.replace(/[^0-9]/g, '')).toLocaleString('id-ID') : ''} onChange={(e)=>setDebtAmount(e.target.value)} placeholder="Nominal Rp" className="w-full px-2 py-1.5 border rounded-md text-xs font-mono bg-slate-50" required />
+               <input type="text" value={debtName} onChange={(e)=>setDebtName(e.target.value)} placeholder="Nama Peminjam" className="w-full px-3 py-2 bg-slate-50 border-none rounded-xl text-xs font-medium" required />
+               <input type="text" inputMode="numeric" value={debtAmount ? Number(debtAmount.replace(/[^0-9]/g, '')).toLocaleString('id-ID') : ''} onChange={(e)=>setDebtAmount(e.target.value)} placeholder="Nominal Rp" className="w-full px-3 py-2 bg-slate-50 border-none rounded-xl text-xs font-black font-mono" required />
              </div>
-             <button type="submit" className="w-full bg-amber-600 text-white py-1.5 rounded-md text-xs font-bold hover:bg-amber-700">Catat Piutang</button>
+             <button type="submit" className="w-full bg-indigo-600 text-white py-2.5 rounded-xl text-xs font-bold hover:bg-indigo-700 transition">Catat Kasbon</button>
           </form>
-          <div className="space-y-3">
+          <div className="space-y-3 flex-1 overflow-y-auto max-h-[300px] [&::-webkit-scrollbar]:hidden">
             {debts.map(debt => (
-              <div key={debt.id} className="bg-white border border-amber-200 p-3 rounded-xl flex justify-between items-center gap-3">
-                <div><h4 className="font-bold text-sm text-slate-900">{debt.borrower_name}</h4><p className="text-xs font-mono font-bold text-amber-600 mt-0.5">Rp {Number(debt.amount).toLocaleString('id-ID')}</p></div>
-                <button onClick={() => handlePayDebt(debt)} className="flex items-center gap-1 bg-slate-900 text-white px-3 py-1.5 rounded text-[10px] font-bold hover:bg-black"><Check size={12}/> Lunas</button>
+              <div key={debt.id} className="bg-white p-4 rounded-2xl shadow-sm flex justify-between items-center gap-3">
+                <div><h4 className="font-bold text-sm text-slate-800">{debt.borrower_name}</h4><p className="text-xs font-black tracking-tight text-indigo-600 mt-0.5">Rp {Number(debt.amount).toLocaleString('id-ID')}</p></div>
+                <button onClick={() => handlePayDebt(debt)} className="flex items-center justify-center p-2 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-600 hover:text-white transition" title="Tandai Lunas"><Check size={18}/></button>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-          <div className="flex items-center gap-2 mb-6 border-b border-slate-100 pb-4"><Box size={18} className="text-blue-500" /><h3 className="font-bold text-lg text-slate-800">Impulse Sandbox</h3></div>
-          <form onSubmit={async (e) => { e.preventDefault(); const { data: { user } } = await supabase.auth.getUser(); if (user && sandboxName && sandboxPrice) { const d = new Date(); d.setDate(d.getDate() + parseInt(sandboxDays)); await supabase.from('impulse_sandbox').insert({ user_id: user.id, item_name: sandboxName, price: parseFloat(sandboxPrice.replace(/[^0-9]/g, '')), target_date: d.toISOString().split('T')[0] }); setSandboxName(''); setSandboxPrice(''); fetchData(); }}} className="bg-slate-50 border border-slate-200 p-4 rounded-xl mb-4 space-y-3">
+        {/* IMPULSE SANDBOX */}
+        <div className="bg-slate-50/50 border border-slate-100 rounded-[2rem] p-6 shadow-sm flex flex-col">
+          <div className="flex items-center gap-3 mb-6"><div className="p-2 bg-slate-200 rounded-xl"><Box size={18} className="text-slate-600" /></div><h3 className="font-bold text-base text-slate-800">Impulse Sandbox</h3></div>
+          <form onSubmit={async (e) => { e.preventDefault(); const { data: { user } } = await supabase.auth.getUser(); if (user && sandboxName && sandboxPrice) { const d = new Date(); d.setDate(d.getDate() + parseInt(sandboxDays)); await supabase.from('impulse_sandbox').insert({ user_id: user.id, item_name: sandboxName, price: parseFloat(sandboxPrice.replace(/[^0-9]/g, '')), target_date: d.toISOString().split('T')[0] }); setSandboxName(''); setSandboxPrice(''); fetchData(); }}} className="bg-white p-4 rounded-2xl mb-4 space-y-3 shadow-sm border border-slate-50">
              <div className="grid grid-cols-1 gap-2">
-               <input type="text" value={sandboxName} onChange={(e)=>setSandboxName(e.target.value)} placeholder="Barang Keinginan" className="w-full px-2 py-1.5 border rounded-md text-xs bg-white" required />
+               <input type="text" value={sandboxName} onChange={(e)=>setSandboxName(e.target.value)} placeholder="Barang Keinginan" className="w-full px-3 py-2 bg-slate-50 border-none rounded-xl text-xs font-medium" required />
                <div className="flex gap-2">
-                 <input type="text" inputMode="numeric" value={sandboxPrice ? Number(sandboxPrice.replace(/[^0-9]/g, '')).toLocaleString('id-ID') : ''} onChange={(e)=>setSandboxPrice(e.target.value)} placeholder="Harga Rp" className="flex-1 px-2 py-1.5 border rounded-md text-xs font-mono bg-white" required />
-                 <select value={sandboxDays} onChange={(e)=>setSandboxDays(e.target.value)} className="w-20 px-2 py-1.5 border rounded-md text-xs bg-white"><option value="1">1H</option><option value="3">3H</option><option value="7">7H</option></select>
+                 <input type="text" inputMode="numeric" value={sandboxPrice ? Number(sandboxPrice.replace(/[^0-9]/g, '')).toLocaleString('id-ID') : ''} onChange={(e)=>setSandboxPrice(e.target.value)} placeholder="Harga Rp" className="flex-1 px-3 py-2 bg-slate-50 border-none rounded-xl text-xs font-black font-mono" required />
+                 <select value={sandboxDays} onChange={(e)=>setSandboxDays(e.target.value)} className="w-20 px-2 py-2 bg-slate-50 border-none rounded-xl text-xs font-bold text-center"><option value="1">1H</option><option value="3">3H</option><option value="7">7H</option></select>
                </div>
              </div>
-             <button type="submit" className="w-full bg-slate-900 text-white py-1.5 rounded-md text-xs font-bold hover:bg-black">Kunci Belanja</button>
+             <button type="submit" className="w-full bg-slate-800 text-white py-2.5 rounded-xl text-xs font-bold hover:bg-slate-900 transition">Kunci Belanja</button>
           </form>
-          <div className="space-y-3">
+          <div className="space-y-3 flex-1 overflow-y-auto max-h-[300px] [&::-webkit-scrollbar]:hidden">
             {sandboxItems.map(item => {
               const isReady = new Date(item.target_date) <= new Date();
               return (
-                <div key={item.id} className="bg-white border border-slate-200 p-3 rounded-xl flex flex-col gap-2">
-                  <div className="flex justify-between"><h4 className="font-bold text-sm text-slate-900">{item.item_name}</h4><p className="text-xs font-mono font-bold text-slate-500">Rp {Number(item.price).toLocaleString('id-ID')}</p></div>
-                  {!isReady ? <div className="flex justify-center gap-1 bg-slate-100 text-slate-500 py-1 rounded text-[10px] font-bold"><Clock size={12}/> Terkunci s/d {item.target_date}</div> : <div className="flex gap-2"><button onClick={async ()=>{if(!window.confirm('Beli?'))return; const { data: { user } } = await supabase.auth.getUser(); if(user) {await supabase.from('impulse_sandbox').update({status:'approve'}).eq('id',item.id); await supabase.from('transactions').insert({user_id:user.id,type:'expense',amount:item.price,description:`[Sandbox] ${item.item_name}`,category:'Hiburan',transaction_date:new Date().toISOString().split('T')[0]}); fetchData();}}} className="flex-1 flex justify-center gap-1 bg-emerald-600 text-white py-1 rounded text-[10px] font-bold"><Check size={12}/> Beli</button><button onClick={async ()=>{if(!window.confirm('Batal?'))return; await supabase.from('impulse_sandbox').update({status:'reject'}).eq('id',item.id); fetchData();}} className="flex-1 flex justify-center gap-1 bg-white text-red-600 border border-red-200 py-1 rounded text-[10px] font-bold"><X size={12}/> Batal</button></div>}
+                <div key={item.id} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-50 flex flex-col gap-3">
+                  <div className="flex justify-between items-start">
+                    <h4 className="font-bold text-sm text-slate-800">{item.item_name}</h4>
+                    <p className="text-xs font-black tracking-tight text-slate-500">Rp {Number(item.price).toLocaleString('id-ID')}</p>
+                  </div>
+                  {!isReady ? 
+                    <div className="flex justify-center items-center gap-1.5 bg-slate-100 text-slate-500 py-2 rounded-xl text-[10px] font-bold"><Clock size={12}/> Terkunci hingga {item.target_date}</div> : 
+                    <div className="flex gap-2">
+                      <button onClick={async ()=>{if(!window.confirm('Yakin ingin membelinya sekarang?'))return; const { data: { user } } = await supabase.auth.getUser(); if(user) {await supabase.from('impulse_sandbox').update({status:'approve'}).eq('id',item.id); await supabase.from('transactions').insert({user_id:user.id,type:'expense',amount:item.price,description:`[Sandbox] ${item.item_name}`,category:'Hiburan',transaction_date:new Date().toISOString().split('T')[0]}); fetchData();}}} className="flex-1 flex justify-center gap-1 bg-emerald-100 text-emerald-700 py-2 rounded-xl text-xs font-bold hover:bg-emerald-200 transition"><Check size={14}/> Beli</button>
+                      <button onClick={async ()=>{if(!window.confirm('Batal beli barang ini?'))return; await supabase.from('impulse_sandbox').update({status:'reject'}).eq('id',item.id); fetchData();}} className="flex-1 flex justify-center gap-1 bg-rose-50 text-rose-600 py-2 rounded-xl text-xs font-bold hover:bg-rose-100 transition"><X size={14}/> Batal</button>
+                    </div>
+                  }
                 </div>
               )
             })}
           </div>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-          <div className="flex items-center gap-2 mb-6 border-b border-slate-100 pb-4"><Receipt size={18} className="text-slate-500" /><h3 className="font-bold text-lg text-slate-800">Tagihan Tetap</h3></div>
-          
-          <form onSubmit={handleSaveBill} className="bg-slate-50 border border-slate-200 p-4 rounded-xl mb-4 space-y-3">
+        {/* TAGIHAN TETAP */}
+        <div className="bg-rose-50/30 border border-rose-100 rounded-[2rem] p-6 shadow-sm flex flex-col">
+          <div className="flex items-center gap-3 mb-6"><div className="p-2 bg-rose-100 rounded-xl"><Receipt size={18} className="text-rose-600" /></div><h3 className="font-bold text-base text-rose-900">Tagihan Tetap</h3></div>
+          <form onSubmit={handleSaveBill} className="bg-white border border-rose-50 p-4 rounded-2xl mb-4 space-y-3 shadow-sm">
              <div className="grid grid-cols-1 gap-2">
-               <input type="text" value={billName} onChange={(e)=>setBillName(e.target.value)} placeholder="Nama Tagihan (Cth: Kos)" className="w-full px-2 py-1.5 border rounded-md text-xs bg-white" required />
+               <input type="text" value={billName} onChange={(e)=>setBillName(e.target.value)} placeholder="Nama Tagihan (Cth: Kos)" className="w-full px-3 py-2 bg-slate-50 border-none rounded-xl text-xs font-medium" required />
                <div className="flex gap-2">
-                 <input type="text" inputMode="numeric" value={billAmount ? Number(billAmount.replace(/[^0-9]/g, '')).toLocaleString('id-ID') : ''} onChange={(e)=>setBillAmount(e.target.value)} placeholder="Nominal Rp" className="flex-1 px-2 py-1.5 border rounded-md text-xs font-mono bg-white" required />
-                 <input type="number" min="1" max="31" value={billDueDate} onChange={(e)=>setBillDueDate(e.target.value)} placeholder="Tgl" className="w-16 px-2 py-1.5 border rounded-md text-xs bg-white" required />
+                 <input type="text" inputMode="numeric" value={billAmount ? Number(billAmount.replace(/[^0-9]/g, '')).toLocaleString('id-ID') : ''} onChange={(e)=>setBillAmount(e.target.value)} placeholder="Nominal Rp" className="flex-1 px-3 py-2 bg-slate-50 border-none rounded-xl text-xs font-black font-mono" required />
+                 <input type="number" min="1" max="31" value={billDueDate} onChange={(e)=>setBillDueDate(e.target.value)} placeholder="Tgl" className="w-16 px-2 py-2 bg-slate-50 border-none rounded-xl text-xs font-bold text-center" required />
                </div>
              </div>
-             <button type="submit" className="w-full bg-slate-900 text-white py-1.5 rounded-md text-xs font-bold hover:bg-black">Tambah Tagihan</button>
+             <button type="submit" className="w-full bg-rose-600 text-white py-2.5 rounded-xl text-xs font-bold hover:bg-rose-700 transition">Tambah Tagihan</button>
           </form>
 
-          <div className="space-y-3">
+          <div className="space-y-3 flex-1 overflow-y-auto max-h-[300px] [&::-webkit-scrollbar]:hidden">
             {bills.map(bill => {
               const isPaid = bill.last_paid_month && (new Date(bill.last_paid_month).getMonth() === new Date().getMonth() && new Date(bill.last_paid_month).getFullYear() === new Date().getFullYear());
               return (
-              <div key={bill.id} className="bg-slate-50 border border-slate-200 p-3 rounded-xl flex flex-col gap-2">
+              <div key={bill.id} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-50 flex flex-col gap-3">
                 <div className="flex justify-between items-start">
                   <div>
-                    <h4 className="font-bold text-sm text-slate-900">{bill.name}</h4>
-                    <p className="text-xs font-mono font-bold text-slate-500">Rp {Number(bill.amount).toLocaleString('id-ID')}</p>
+                    <h4 className="font-bold text-sm text-slate-800">{bill.name}</h4>
+                    <p className="text-xs font-black tracking-tight text-slate-500 mt-0.5">Rp {Number(bill.amount).toLocaleString('id-ID')}</p>
                   </div>
-                  <button onClick={() => handleDeleteBill(bill.id)} className="text-slate-400 hover:text-red-500"><Trash2 size={14}/></button>
+                  <button onClick={() => handleDeleteBill(bill.id)} className="text-slate-400 hover:text-rose-500 p-1"><Trash2 size={16}/></button>
                 </div>
                 
-                <div className="flex justify-between items-end mt-1">
-                  <div>
-                    <span className="block text-[10px] text-slate-500 font-bold mb-1">Jatuh Tempo: Tgl {bill.due_date}</span>
-                    {isPaid ? <span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded">✓ Selesai bln ini</span> : <span className="text-[10px] font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded">Belum bayar</span>}
-                  </div>
+                <div className="flex justify-between items-center mt-1 border-t border-slate-50 pt-3">
+                  {isPaid ? <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-lg flex items-center gap-1"><Check size={12}/> Lunas bulan ini</span> : <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-2.5 py-1 rounded-lg">Jatuh Tempo: Tgl {bill.due_date}</span>}
                   <button onClick={async ()=>{
                     if(!window.confirm(`Catat pembayaran untuk ${bill.name}?`))return; 
                     const { data: { user } } = await supabase.auth.getUser(); 
@@ -372,7 +375,7 @@ export default function FinancialModule() {
                       await supabase.from('recurring_bills').update({last_paid_month:t}).eq('id',bill.id); 
                       fetchData();
                     }
-                  }} className="text-[10px] font-bold bg-slate-900 text-white px-3 py-1.5 rounded hover:bg-black transition">
+                  }} className="text-[10px] font-bold bg-slate-800 text-white px-3 py-1.5 rounded-lg hover:bg-slate-900 transition">
                     Catat Bayar
                   </button>
                 </div>
@@ -381,6 +384,7 @@ export default function FinancialModule() {
           </div>
         </div>
       </div>
+      
     </div>
   );
 }
