@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { ArrowDownRight, ArrowUpRight, Scale, Plus, Loader2, Receipt, Trash2, Edit3, X, Download, Box, Check, Clock, Users, Wallet, ArrowRight } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, Scale, Plus, Loader2, Receipt, Trash2, Edit3, X, Download, Box, Check, Clock, Users, Wallet, ArrowRight, Calendar, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 
-type Transaction = { id: string; type: 'income' | 'expense' | 'adjustment'; amount: number; description: string; category: string; transaction_date: string; };
+type Transaction = { id: string; type: 'income' | 'expense' | 'adjustment'; amount: number; description: string; notes?: string; category: string; transaction_date: string; };
 type Bill = { id: string; name: string; amount: number; due_date: number; category: string; last_paid_month: string | null; };
 type ImpulseItem = { id: string; item_name: string; price: number; target_date: string; status: string; };
 type Debt = { id: string; borrower_name: string; amount: number; status: string; created_at: string; };
@@ -25,11 +25,15 @@ export default function FinancialModule() {
   const [flowType, setFlowType] = useState<'expense' | 'income'>('expense');
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
+  const [notes, setNotes] = useState(''); // State Baru untuk Catatan Opsional
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [category, setCategory] = useState('Makan/Minum');
   const [submitting, setSubmitting] = useState(false);
 
-  // Mini Modules States & Edit Tracking
+  // UI States (Expandable Notes)
+  const [expandedTrxId, setExpandedTrxId] = useState<string | null>(null);
+
+  // Mini Modules States
   const [isBillFormOpen, setIsBillFormOpen] = useState(false);
   const [editingBillId, setEditingBillId] = useState<string | null>(null);
   const [billName, setBillName] = useState(''); const [billAmount, setBillAmount] = useState(''); const [billDueDate, setBillDueDate] = useState('1');
@@ -48,8 +52,15 @@ export default function FinancialModule() {
   const [categoryData, setCategoryData] = useState<any[]>([]);
   const [periodTotal, setPeriodTotal] = useState({ expense: 0, income: 0 });
 
+  // Full Calendar States
+  const currentDate = new Date();
+  const [calendarMonth, setCalendarMonth] = useState(currentDate.getMonth());
+  const [calendarYear, setCalendarYear] = useState(currentDate.getFullYear());
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState<string | null>(currentDate.toISOString().split('T')[0]);
+
   const expenseCategories = ['Makan/Minum', 'Transportasi', 'Kebutuhan Kos', 'Akademik/Tugas', 'Hiburan', 'Lainnya'];
   const incomeCategories = ['Kiriman Ortu', 'Gaji/Freelance', 'Pemberian/Bonus', 'Lainnya'];
+  const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
 
   useEffect(() => { fetchData(); }, []);
 
@@ -105,7 +116,7 @@ export default function FinancialModule() {
 
   // --- HANDLERS: TRANSACTIONS ---
   const resetTrxForm = () => { 
-    setEditingTrxId(null); setAmount(''); setDescription(''); setDate(new Date().toISOString().split('T')[0]); 
+    setEditingTrxId(null); setAmount(''); setDescription(''); setNotes(''); setDate(new Date().toISOString().split('T')[0]); 
     setFlowType('expense'); setCategory(expenseCategories[0]); setIsTrxModalOpen(false); 
   };
   const handleSubmitTransaction = async (e: React.FormEvent) => {
@@ -113,16 +124,25 @@ export default function FinancialModule() {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       const isExact = activeFormTab === 'exact';
-      const payload = { user_id: user.id, type: isExact ? 'adjustment' : flowType, amount: parseFloat(amount.replace(/[^0-9]/g, '')), description: isExact ? 'Penyesuaian Saldo Sistem' : description, category: isExact ? 'System' : category, transaction_date: date };
+      const payload = { 
+        user_id: user.id, type: isExact ? 'adjustment' : flowType, 
+        amount: parseFloat(amount.replace(/[^0-9]/g, '')), 
+        description: isExact ? 'Penyesuaian Saldo Sistem' : description, 
+        notes: isExact ? '' : notes,
+        category: isExact ? 'System' : category, 
+        transaction_date: date 
+      };
+      
       if (editingTrxId) await supabase.from('transactions').update(payload).eq('id', editingTrxId);
       else await supabase.from('transactions').insert(payload);
+      
       resetTrxForm(); fetchData();
     }
     setSubmitting(false);
   };
   const handleEditTrx = (trx: Transaction) => {
     setActiveFormTab(trx.type === 'adjustment' ? 'exact' : 'flow'); setEditingTrxId(trx.id); setFlowType(trx.type === 'adjustment' ? 'expense' : trx.type); 
-    setAmount(String(trx.amount)); setDescription(trx.description); setDate(trx.transaction_date); setCategory(trx.category); 
+    setAmount(String(trx.amount)); setDescription(trx.description); setNotes(trx.notes || ''); setDate(trx.transaction_date); setCategory(trx.category); 
     setIsTrxModalOpen(true);
   };
   const handleDeleteTransaction = async (id: string) => { if (!window.confirm("Hapus catatan ini?")) return; await supabase.from('transactions').delete().eq('id', id); fetchData(); };
@@ -181,6 +201,25 @@ export default function FinancialModule() {
   };
   const handleEditSandbox = (s: ImpulseItem) => { setEditingSandboxId(s.id); setSandboxName(s.item_name); setSandboxPrice(String(s.price)); setSandboxDays('3'); setIsSandboxFormOpen(true); };
 
+  // --- CALENDAR LOGIC ---
+  const getDaysInMonth = (y: number, m: number) => new Date(y, m + 1, 0).getDate();
+  const getFirstDayOfMonth = (y: number, m: number) => new Date(y, m, 1).getDay();
+  const generateCalendarDays = () => {
+    const days = [];
+    for (let i = 0; i < getFirstDayOfMonth(calendarYear, calendarMonth); i++) days.push(null);
+    for (let i = 1; i <= getDaysInMonth(calendarYear, calendarMonth); i++) {
+      const d = `${calendarYear}-${String(calendarMonth + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+      const dayTrx = transactions.filter(t => t.transaction_date === d && t.category !== 'System');
+      const expense = dayTrx.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
+      const income = dayTrx.filter(t => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0);
+      days.push({ 
+        date: i, fullDate: d, hasTransactions: dayTrx.length > 0, 
+        intensity: expense > 50000 ? 'bg-rose-500' : expense > 0 ? 'bg-rose-300' : income > 0 ? 'bg-emerald-400' : 'bg-transparent'
+      });
+    }
+    return days;
+  };
+
   if (loading) return <div className="h-64 flex items-center justify-center"><Loader2 className="animate-spin text-slate-400" size={32} /></div>;
 
   return (
@@ -203,46 +242,59 @@ export default function FinancialModule() {
         <div className="absolute -right-10 -top-10 opacity-10 pointer-events-none"><Wallet size={200} /></div>
       </div>
 
-      {/* DUA KOLOM: HISTORY & CHART */}
+      {/* BARIS 1: BUKU KAS & ANALISIS */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* BUKU KAS (HISTORY TERBARU) */}
         <div className="lg:col-span-1 bg-white border border-slate-100 rounded-[2rem] p-6 sm:p-7 shadow-sm flex flex-col h-[500px]">
           <h3 className="font-bold text-sm uppercase tracking-widest text-slate-400 mb-4 border-b border-slate-50 pb-4 shrink-0">Buku Kas</h3>
           <div className="space-y-3 overflow-y-auto flex-1 pr-2 [&::-webkit-scrollbar]:hidden">
-            {transactions.slice(0, 15).length === 0 ? <p className="text-center text-sm text-slate-400 mt-10">Belum ada transaksi.</p> : transactions.slice(0, 15).map((trx) => (
-              <div key={trx.id} className="flex justify-between items-center p-3 sm:p-4 bg-slate-50/50 border border-transparent hover:border-slate-100 rounded-2xl group transition-all">
-                <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-xl shrink-0 ${trx.type === 'expense' ? 'bg-rose-100 text-rose-600' : trx.type === 'income' ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-800 text-white'}`}>{trx.type === 'expense' ? <ArrowDownRight size={16} /> : trx.type === 'income' ? <ArrowUpRight size={16} /> : <Scale size={16} />}</div>
-                  <div className="min-w-0">
-                    <p className="font-bold text-sm text-slate-800 truncate pr-2">{trx.description}</p>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase mt-1">{trx.transaction_date} • {trx.category}</p>
+            {transactions.slice(0, 15).length === 0 ? <p className="text-center text-sm text-slate-400 mt-10">Belum ada transaksi.</p> : transactions.slice(0, 15).map((trx) => {
+              const isExpanded = expandedTrxId === trx.id;
+              return (
+              <div key={trx.id} className="p-3 sm:p-4 bg-slate-50/50 border border-transparent hover:border-slate-100 rounded-2xl group transition-all flex flex-col gap-2">
+                <div className="flex justify-between items-start">
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-xl shrink-0 ${trx.type === 'expense' ? 'bg-rose-100 text-rose-600' : trx.type === 'income' ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-800 text-white'}`}>{trx.type === 'expense' ? <ArrowDownRight size={16} /> : trx.type === 'income' ? <ArrowUpRight size={16} /> : <Scale size={16} />}</div>
+                    <div className="min-w-0">
+                      <p className="font-bold text-sm text-slate-800 truncate pr-2">{trx.description}</p>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase mt-1">{trx.transaction_date} • {trx.category}</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    <div className={`font-black tracking-tight text-xs sm:text-sm ${trx.type === 'expense' ? 'text-rose-600' : trx.type === 'income' ? 'text-emerald-600' : 'text-slate-800'}`}>{trx.type === 'expense' ? '-' : trx.type === 'income' ? '+' : '='} Rp {(trx.amount/1000).toLocaleString('id-ID')}k</div>
+                    <div className="flex gap-1 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => handleEditTrx(trx)} className="text-slate-400 hover:text-blue-600 p-1"><Edit3 size={14} /></button>
+                      <button onClick={() => handleDeleteTransaction(trx.id)} className="text-slate-400 hover:text-rose-600 p-1"><Trash2 size={14} /></button>
+                    </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <div className={`font-black tracking-tight text-xs sm:text-sm ${trx.type === 'expense' ? 'text-rose-600' : trx.type === 'income' ? 'text-emerald-600' : 'text-slate-800'}`}>{trx.type === 'expense' ? '-' : trx.type === 'income' ? '+' : '='} Rp {(trx.amount/1000).toLocaleString('id-ID')}k</div>
-                  <div className="flex gap-1 md:opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={() => handleEditTrx(trx)} className="text-slate-400 hover:text-blue-600 p-1"><Edit3 size={14} /></button>
-                    <button onClick={() => handleDeleteTransaction(trx.id)} className="text-slate-400 hover:text-rose-600 p-1"><Trash2 size={14} /></button>
+                {/* SMART EXPAND DESKRIPSI OPSIONAL */}
+                {trx.notes && (
+                  <div className="mt-1 pt-2 border-t border-slate-200/50">
+                    <button onClick={() => setExpandedTrxId(isExpanded ? null : trx.id)} className="text-[10px] font-bold text-slate-400 hover:text-blue-600 flex items-center gap-1 transition-colors">
+                      {isExpanded ? <ChevronUp size={12}/> : <ChevronDown size={12}/>} {isExpanded ? 'Tutup Catatan' : 'Lihat Catatan'}
+                    </button>
+                    {isExpanded && <div className="mt-2 text-xs text-slate-600 bg-white p-2.5 rounded-lg shadow-sm border border-slate-100 whitespace-pre-wrap leading-relaxed">{trx.notes}</div>}
                   </div>
-                </div>
+                )}
               </div>
-            ))}
+            )})}
           </div>
         </div>
 
         {/* ANALISIS PERIODE */}
-        <div className="lg:col-span-2 bg-white border border-slate-100 rounded-[2rem] p-6 sm:p-7 shadow-sm flex flex-col">
-          <div className="flex justify-between items-center mb-6 border-b border-slate-50 pb-4">
+        <div className="lg:col-span-2 bg-white border border-slate-100 rounded-[2rem] p-6 sm:p-7 shadow-sm flex flex-col h-[500px]">
+          <div className="flex justify-between items-center mb-6 border-b border-slate-50 pb-4 shrink-0">
             <h3 className="font-bold text-lg text-slate-800">Analisis</h3>
             <select value={timeRange} onChange={(e) => setTimeRange(e.target.value as any)} className="bg-slate-50 text-xs font-bold px-3 py-2 rounded-xl border-none outline-none cursor-pointer text-slate-600">
               <option value="7d">7 Hari</option><option value="30d">30 Hari</option><option value="6m">6 Bulan</option><option value="1y">1 Tahun</option>
             </select>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 flex-1">
-            <div className="flex flex-col">
-              <div className="flex gap-3 mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 flex-1 min-h-0">
+            <div className="flex flex-col h-full">
+              <div className="flex gap-3 mb-4 shrink-0">
                 <div className="flex-1 bg-rose-50/50 p-4 rounded-2xl border border-rose-50">
                   <p className="text-[10px] font-bold text-rose-500 uppercase mb-0.5">Keluar</p>
                   <p className="font-black tracking-tight text-rose-700 text-base sm:text-lg">Rp {(periodTotal.expense/1000).toLocaleString('id-ID')}k</p>
@@ -252,7 +304,7 @@ export default function FinancialModule() {
                   <p className="font-black tracking-tight text-emerald-700 text-base sm:text-lg">Rp {(periodTotal.income/1000).toLocaleString('id-ID')}k</p>
                 </div>
               </div>
-              <div className="h-32 sm:h-48 w-full mt-auto">
+              <div className="flex-1 min-h-[150px] w-full mt-auto">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={chartData}>
                     <XAxis dataKey="date" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false}/>
@@ -264,9 +316,9 @@ export default function FinancialModule() {
               </div>
             </div>
 
-            <div className="flex flex-col border-t md:border-t-0 md:border-l border-slate-50 pt-6 md:pt-0 md:pl-6">
-              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Distribusi Pengeluaran</h4>
-              <div className="h-32 sm:h-40 w-full mb-4">
+            <div className="flex flex-col h-full border-t md:border-t-0 md:border-l border-slate-50 pt-6 md:pt-0 md:pl-6">
+              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 shrink-0">Distribusi Pengeluaran</h4>
+              <div className="h-32 sm:h-40 w-full mb-4 shrink-0">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie data={categoryData} innerRadius={40} outerRadius={60} paddingAngle={4} dataKey="value" stroke="none">
@@ -292,7 +344,106 @@ export default function FinancialModule() {
         </div>
       </div>
 
-      {/* HORIZONTAL CAROUSEL UNTUK ALAT SPESIFIK */}
+      {/* BARIS 2: KALENDER BULANAN FULL */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* Kalender Utama */}
+        <div className="lg:col-span-2 bg-white border border-slate-100 rounded-[2rem] p-6 sm:p-7 shadow-sm">
+          <div className="flex justify-between items-center mb-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-blue-50 rounded-xl"><Calendar size={20} className="text-blue-600" /></div>
+              <h3 className="font-bold text-lg text-slate-800">{monthNames[calendarMonth]} {calendarYear}</h3>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => { if(calendarMonth===0){setCalendarMonth(11); setCalendarYear(y=>y-1)} else setCalendarMonth(m=>m-1) }} className="p-2.5 bg-slate-50 text-slate-500 rounded-xl hover:bg-slate-100 transition-colors"><ChevronLeft size={18} /></button>
+              <button onClick={() => { if(calendarMonth===11){setCalendarMonth(0); setCalendarYear(y=>y+1)} else setCalendarMonth(m=>m+1) }} className="p-2.5 bg-slate-50 text-slate-500 rounded-xl hover:bg-slate-100 transition-colors"><ChevronRight size={18} /></button>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-7 gap-1 sm:gap-2 text-center mb-2">
+            {['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'].map(d => <div key={d} className="text-[10px] sm:text-xs font-bold text-slate-400 py-1 uppercase">{d}</div>)}
+          </div>
+          
+          <div className="grid grid-cols-7 gap-1 sm:gap-2">
+            {generateCalendarDays().map((day, idx) => (
+              day === null ? <div key={`empty-${idx}`} className="h-12 sm:h-16"></div> : (
+                <button 
+                  key={day.fullDate} 
+                  onClick={() => setSelectedCalendarDate(day.fullDate)} 
+                  className={`h-12 sm:h-16 flex flex-col items-center justify-start pt-2 rounded-2xl border transition-all ${selectedCalendarDate === day.fullDate ? 'border-blue-600 bg-blue-50 shadow-sm' : 'border-transparent bg-slate-50/50 hover:bg-slate-50'} ${day.hasTransactions ? 'cursor-pointer' : 'cursor-default'}`}
+                >
+                  <span className={`text-xs sm:text-sm font-bold ${selectedCalendarDate === day.fullDate ? 'text-blue-700' : 'text-slate-600'}`}>{day.date}</span>
+                  {day.hasTransactions && (
+                    <div className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full mt-1.5 ${day.intensity}`}></div>
+                  )}
+                </button>
+              )
+            ))}
+          </div>
+        </div>
+
+        {/* Detail Hari yang Dipilih */}
+        <div className="bg-white border border-slate-100 rounded-[2rem] p-6 sm:p-7 shadow-sm h-[400px] lg:h-auto flex flex-col">
+           {selectedCalendarDate ? (
+             <>
+               <div className="flex justify-between items-center mb-6 border-b border-slate-50 pb-4">
+                 <h3 className="font-bold font-mono text-base text-slate-800">{selectedCalendarDate}</h3>
+                 <button onClick={()=>setSelectedCalendarDate(null)} className="text-slate-400 hover:bg-slate-100 p-1.5 rounded-lg transition-colors"><X size={16}/></button>
+               </div>
+               
+               <div className="flex gap-4 mb-5">
+                 <div className="flex-1 bg-rose-50/50 p-3 rounded-xl border border-rose-50">
+                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Keluar</p>
+                   <p className="font-mono text-sm font-black text-rose-600">Rp {transactions.filter(t => t.transaction_date === selectedCalendarDate && t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0).toLocaleString('id-ID')}</p>
+                 </div>
+                 <div className="flex-1 bg-emerald-50/50 p-3 rounded-xl border border-emerald-50">
+                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Masuk</p>
+                   <p className="font-mono text-sm font-black text-emerald-600">Rp {transactions.filter(t => t.transaction_date === selectedCalendarDate && t.type === 'income').reduce((s, t) => s + Number(t.amount), 0).toLocaleString('id-ID')}</p>
+                 </div>
+               </div>
+
+               <div className="overflow-y-auto flex-1 pr-2 space-y-2 [&::-webkit-scrollbar]:hidden">
+                 {transactions.filter(t => t.transaction_date === selectedCalendarDate).length === 0 ? (
+                   <p className="text-xs text-slate-400 text-center py-6">Tidak ada transaksi pada tanggal ini.</p>
+                 ) : transactions.filter(t => t.transaction_date === selectedCalendarDate).map(trx => {
+                   const isExpanded = expandedTrxId === trx.id;
+                   return (
+                   <div key={trx.id} className="flex flex-col bg-slate-50 p-3 rounded-xl group transition-all">
+                     <div className="flex justify-between items-center">
+                       <span className="text-xs font-bold text-slate-700 truncate pr-2">{trx.description}</span>
+                       <div className="flex items-center gap-2 shrink-0">
+                         <span className={`text-xs font-mono font-black ${trx.type === 'expense' ? 'text-rose-600' : trx.type === 'income' ? 'text-emerald-600' : 'text-slate-600'}`}>
+                           {trx.type==='expense'?'-':trx.type==='income'?'+':'='} {Number(trx.amount).toLocaleString('id-ID')}
+                         </span>
+                         <div className="flex gap-1 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={() => handleEditTrx(trx)} className="text-slate-400 hover:text-blue-600 p-1"><Edit3 size={12} /></button>
+                            <button onClick={() => handleDeleteTransaction(trx.id)} className="text-slate-400 hover:text-rose-600 p-1"><Trash2 size={12} /></button>
+                         </div>
+                       </div>
+                     </div>
+                     {trx.notes && (
+                        <div className="mt-1 pt-2 border-t border-slate-200/50">
+                          <button onClick={() => setExpandedTrxId(isExpanded ? null : trx.id)} className="text-[10px] font-bold text-slate-400 hover:text-blue-600 flex items-center gap-1 transition-colors">
+                            {isExpanded ? <ChevronUp size={12}/> : <ChevronDown size={12}/>} {isExpanded ? 'Tutup Catatan' : 'Lihat Catatan'}
+                          </button>
+                          {isExpanded && <div className="mt-2 text-xs text-slate-600 bg-white p-2.5 rounded-lg shadow-sm border border-slate-100 whitespace-pre-wrap">{trx.notes}</div>}
+                        </div>
+                     )}
+                   </div>
+                 )})}
+               </div>
+             </>
+           ) : (
+             <div className="h-full flex flex-col items-center justify-center text-slate-400 text-center py-10 opacity-60">
+               <Calendar size={48} className="mb-4 text-slate-300" />
+               <p className="text-sm font-medium">Pilih tanggal di kalender untuk melihat rincian.</p>
+             </div>
+           )}
+        </div>
+
+      </div>
+
+      {/* BARIS 3: HORIZONTAL CAROUSEL UNTUK ALAT SPESIFIK */}
       <div className="relative mt-2">
         <div className="flex overflow-x-auto lg:grid lg:grid-cols-3 snap-x snap-mandatory gap-6 pb-6 [&::-webkit-scrollbar]:hidden scroll-smooth relative z-10">
           
@@ -441,6 +592,7 @@ export default function FinancialModule() {
             </div>
           </div>
         </div>
+        
         {/* Penanda Visual Scroll Horizontal (Muncul di HP) */}
         <div className="absolute top-0 right-0 h-full w-12 bg-gradient-to-l from-[#F8F9FA] to-transparent pointer-events-none lg:hidden flex items-center justify-end pr-1 z-20">
           <ArrowRight className="text-slate-400 animate-pulse w-5 h-5 bg-white/50 rounded-full" />
@@ -471,7 +623,8 @@ export default function FinancialModule() {
                   <div><label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">Tanggal</label><input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-100" required /></div>
                   <div><label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">Nominal (Rp)</label><input type="text" inputMode="numeric" value={amount ? Number(amount.replace(/[^0-9]/g, '')).toLocaleString('id-ID') : ''} onChange={(e) => setAmount(e.target.value)} placeholder="0" className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-lg font-black font-mono focus:ring-2 focus:ring-blue-100" required /></div>
                   <div><label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">Kategori</label><select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-100">{(flowType === 'expense' ? expenseCategories : incomeCategories).map(c => <option key={c} value={c}>{c}</option>)}</select></div>
-                  <div><label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">Keterangan</label><input type="text" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Misal: Makan Siang" className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-100" required /></div>
+                  <div><label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">Judul Transaksi <span className="text-rose-500">*</span></label><input type="text" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Misal: Makan Siang" className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-100" required /></div>
+                  <div><label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">Catatan Opsional</label><textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Misal: Di warteg bareng Budi..." rows={2} className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-100 resize-none"></textarea></div>
                 </>
               )}
               {activeFormTab === 'exact' && (
