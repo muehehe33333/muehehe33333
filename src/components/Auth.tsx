@@ -49,7 +49,7 @@ export default function Auth() {
               <Command size={28} className="text-slate-900" />
             </div>
             <h1 className="text-2xl font-black text-white tracking-tight">Personal HQ</h1>
-            <p className="text-slate-400 text-sm mt-2">Pusat Komando & Manajemen Pribadi</p>
+            <p className="text-slate-400 text-sm mt-2">Pusat Manajemen</p>
           </div>
           {/* Ornamen Latar */}
           <ShieldCheck size={120} className="absolute -bottom-10 -right-10 text-slate-800 opacity-50 rotate-12" />
