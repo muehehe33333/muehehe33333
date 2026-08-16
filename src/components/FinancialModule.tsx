@@ -25,7 +25,7 @@ export default function FinancialModule() {
   const [flowType, setFlowType] = useState<'expense' | 'income'>('expense');
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
-  const [notes, setNotes] = useState(''); // State Baru untuk Catatan Opsional
+  const [notes, setNotes] = useState(''); 
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [category, setCategory] = useState('Makan/Minum');
   const [submitting, setSubmitting] = useState(false);
@@ -246,7 +246,7 @@ export default function FinancialModule() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* BUKU KAS (HISTORY TERBARU) */}
-        <div className="lg:col-span-1 bg-white border border-slate-100 rounded-[2rem] p-6 sm:p-7 shadow-sm flex flex-col h-[500px]">
+        <div className="lg:col-span-1 bg-white border border-slate-100 rounded-[2rem] p-6 sm:p-7 shadow-sm flex flex-col h-[400px] lg:h-[500px]">
           <h3 className="font-bold text-sm uppercase tracking-widest text-slate-400 mb-4 border-b border-slate-50 pb-4 shrink-0">Buku Kas</h3>
           <div className="space-y-3 overflow-y-auto flex-1 pr-2 [&::-webkit-scrollbar]:hidden">
             {transactions.slice(0, 15).length === 0 ? <p className="text-center text-sm text-slate-400 mt-10">Belum ada transaksi.</p> : transactions.slice(0, 15).map((trx) => {
@@ -283,8 +283,8 @@ export default function FinancialModule() {
           </div>
         </div>
 
-        {/* ANALISIS PERIODE */}
-        <div className="lg:col-span-2 bg-white border border-slate-100 rounded-[2rem] p-6 sm:p-7 shadow-sm flex flex-col h-[500px]">
+        {/* ANALISIS PERIODE (Fixed Height Issue) */}
+        <div className="lg:col-span-2 bg-white border border-slate-100 rounded-[2rem] p-6 sm:p-7 shadow-sm flex flex-col h-auto lg:h-[500px]">
           <div className="flex justify-between items-center mb-6 border-b border-slate-50 pb-4 shrink-0">
             <h3 className="font-bold text-lg text-slate-800">Analisis</h3>
             <select value={timeRange} onChange={(e) => setTimeRange(e.target.value as any)} className="bg-slate-50 text-xs font-bold px-3 py-2 rounded-xl border-none outline-none cursor-pointer text-slate-600">
@@ -304,7 +304,7 @@ export default function FinancialModule() {
                   <p className="font-black tracking-tight text-emerald-700 text-base sm:text-lg">Rp {(periodTotal.income/1000).toLocaleString('id-ID')}k</p>
                 </div>
               </div>
-              <div className="flex-1 min-h-[150px] w-full mt-auto">
+              <div className="flex-1 min-h-[200px] w-full mt-auto">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={chartData}>
                     <XAxis dataKey="date" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false}/>
@@ -318,7 +318,7 @@ export default function FinancialModule() {
 
             <div className="flex flex-col h-full border-t md:border-t-0 md:border-l border-slate-50 pt-6 md:pt-0 md:pl-6">
               <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 shrink-0">Distribusi Pengeluaran</h4>
-              <div className="h-32 sm:h-40 w-full mb-4 shrink-0">
+              <div className="h-40 w-full mb-4 shrink-0">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie data={categoryData} innerRadius={40} outerRadius={60} paddingAngle={4} dataKey="value" stroke="none">
@@ -328,7 +328,7 @@ export default function FinancialModule() {
                   </PieChart>
                 </ResponsiveContainer>
               </div>
-              <div className="space-y-2.5 overflow-y-auto flex-1 pr-1 [&::-webkit-scrollbar]:hidden">
+              <div className="space-y-2.5 overflow-y-auto flex-1 pr-1 min-h-[120px] [&::-webkit-scrollbar]:hidden">
                 {categoryData.length === 0 ? <p className="text-xs text-slate-400 text-center">Data kosong.</p> : categoryData.map((entry, index) => (
                   <div key={index} className="flex justify-between items-center bg-slate-50/50 p-2 rounded-lg">
                     <div className="flex items-center gap-2">
@@ -348,7 +348,7 @@ export default function FinancialModule() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Kalender Utama */}
-        <div className="lg:col-span-2 bg-white border border-slate-100 rounded-[2rem] p-6 sm:p-7 shadow-sm">
+        <div className="lg:col-span-2 bg-white border border-slate-100 rounded-[2rem] p-6 sm:p-7 shadow-sm h-fit">
           <div className="flex justify-between items-center mb-6">
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-blue-50 rounded-xl"><Calendar size={20} className="text-blue-600" /></div>
@@ -383,7 +383,7 @@ export default function FinancialModule() {
         </div>
 
         {/* Detail Hari yang Dipilih */}
-        <div className="bg-white border border-slate-100 rounded-[2rem] p-6 sm:p-7 shadow-sm h-[400px] lg:h-auto flex flex-col">
+        <div className="bg-white border border-slate-100 rounded-[2rem] p-6 sm:p-7 shadow-sm min-h-[300px] lg:h-auto flex flex-col">
            {selectedCalendarDate ? (
              <>
                <div className="flex justify-between items-center mb-6 border-b border-slate-50 pb-4">
@@ -402,7 +402,7 @@ export default function FinancialModule() {
                  </div>
                </div>
 
-               <div className="overflow-y-auto flex-1 pr-2 space-y-2 [&::-webkit-scrollbar]:hidden">
+               <div className="overflow-y-auto flex-1 pr-2 space-y-2 max-h-[250px] lg:max-h-full [&::-webkit-scrollbar]:hidden">
                  {transactions.filter(t => t.transaction_date === selectedCalendarDate).length === 0 ? (
                    <p className="text-xs text-slate-400 text-center py-6">Tidak ada transaksi pada tanggal ini.</p>
                  ) : transactions.filter(t => t.transaction_date === selectedCalendarDate).map(trx => {
