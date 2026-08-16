@@ -14,6 +14,9 @@ export default function ExecutiveDashboard() {
   const [bills, setBills] = useState<any[]>([]);
   const [unpaidDebts, setUnpaidDebts] = useState<any[]>([]);
   
+  // State baru untuk menyimpan seluruh transaksi
+  const [transactions, setTransactions] = useState<any[]>([]);
+  
   const [miniChartData, setMiniChartData] = useState<any[]>([]);
   const [todayExpense, setTodayExpense] = useState(0);
   const [net7d, setNet7d] = useState({ income: 0, expense: 0, total: 0 });
@@ -23,6 +26,18 @@ export default function ExecutiveDashboard() {
   const dateScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { fetchDashboardData(); }, []);
+
+  // Auto-scroll ke "Hari Ini" saat loading selesai
+  useEffect(() => {
+    if (!loading && dateScrollRef.current) {
+      setTimeout(() => {
+        const todayElem = dateScrollRef.current?.querySelector('[data-today="true"]');
+        if (todayElem) {
+          todayElem.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        }
+      }, 300);
+    }
+  }, [loading]);
 
   const fetchDashboardData = async () => {
     setLoading(true);
@@ -37,6 +52,7 @@ export default function ExecutiveDashboard() {
 
     const { data: trx } = await supabase.from('transactions').select('*').eq('user_id', user.id).order('transaction_date', { ascending: false });
     if (trx) {
+      setTransactions(trx); // Simpan ke state untuk kalender
       let runningBalance = 0;
       for (let i = 0; i < trx.length; i++) {
         if (trx[i].type === 'adjustment') { runningBalance += Number(trx[i].amount); break; } 
@@ -89,13 +105,11 @@ export default function ExecutiveDashboard() {
     setProcessing(false);
   };
 
-  // Kalkulasi Global
   const disposableIncome = balance - emergencyLock;
   const dailyLimit = disposableIncome > 0 ? disposableIncome / 30 : 0;
   const uktPercentage = Math.min(100, Math.round((ukt.current / ukt.target) * 100));
   const totalPiutang = unpaidDebts.reduce((sum, d) => sum + Number(d.amount), 0);
 
-  // AI Tip Logic
   const hour = new Date().getHours();
   const greeting = hour < 11 ? 'Selamat Pagi' : hour < 15 ? 'Selamat Siang' : hour < 19 ? 'Selamat Sore' : 'Selamat Malam';
   let financialTip = "Kondisi stabil. Lanjutkan rutinitas dengan baik."; 
@@ -103,9 +117,9 @@ export default function ExecutiveDashboard() {
   if (todayExpense > dailyLimit) { financialTip = "Pengeluaran hari ini melewati batas aman harian."; tipColor = "text-rose-800 bg-rose-50"; } 
   else if (todayExpense > 0 && todayExpense <= dailyLimit) { financialTip = "Pengeluaran hari ini masih dalam batas aman."; tipColor = "text-emerald-800 bg-emerald-50"; }
 
-  // Kalender Terpadu Logic (Generate 14 Hari)
-  const calendarDays = Array.from({length: 14}, (_, i) => {
-    const d = new Date(); d.setDate(d.getDate() - 2 + i); // Mulai dari H-2 sampai H+11
+  // Kalender Terpadu Logic (Rentang 30 Hari: H-14 sampai H+15)
+  const calendarDays = Array.from({length: 30}, (_, i) => {
+    const d = new Date(); d.setDate(d.getDate() - 14 + i); 
     return {
       dateObj: d,
       dateString: d.toISOString().split('T')[0],
@@ -115,11 +129,11 @@ export default function ExecutiveDashboard() {
     };
   });
 
-  // Data Terpilih di Kalender
+  // Data Terpilih di Kalender (Events, Bills, dan Transaksi)
   const selectedEvents = events.filter(e => e.deadline === selectedDate);
   const selectedBills = bills.filter(b => b.due_date === new Date(selectedDate).getDate() && (!b.last_paid_month || b.last_paid_month.substring(0,7) !== selectedDate.substring(0,7)));
+  const selectedTrx = transactions.filter(t => t.transaction_date === selectedDate && t.category !== 'System');
   
-  // Menghitung H-3 Events untuk Radar Mini
   const urgentEvents = events.filter(e => Math.ceil((new Date(e.deadline).getTime() - new Date().setHours(0,0,0,0)) / (1000 * 60 * 60 * 24)) <= 3).slice(0, 3);
   const unpaidBillsGlobal = bills.filter(b => !b.last_paid_month || b.last_paid_month.substring(0,7) !== new Date().toISOString().substring(0,7));
 
@@ -133,7 +147,6 @@ export default function ExecutiveDashboard() {
   return (
     <div className="space-y-6">
       
-      {/* HEADER & AI TIP */}
       <div className="flex flex-col lg:flex-row gap-4 justify-between items-start lg:items-center bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
         <div>
           <h2 className="text-2xl font-black text-slate-800 tracking-tight">{greeting}.</h2>
@@ -145,10 +158,7 @@ export default function ExecutiveDashboard() {
         </div>
       </div>
 
-      {/* METRIK UTAMA - GRID 4 KOLOM */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-        
-        {/* Total Saldo (Lebih lebar) */}
         <div className="md:col-span-2 bg-blue-600 text-white p-6 rounded-[2rem] shadow-lg shadow-blue-600/20 flex flex-col justify-between relative overflow-hidden">
           <div className="relative z-10">
             <div className="flex justify-between items-start mb-4">
@@ -163,7 +173,6 @@ export default function ExecutiveDashboard() {
           <Wallet size={160} className="absolute -bottom-10 -right-10 text-blue-500 opacity-30 rotate-12" />
         </div>
 
-        {/* Limit Harian */}
         <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 flex flex-col justify-center">
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Limit Harian (30H)</span>
           <div className={`text-2xl font-black tracking-tight mb-3 ${dailyLimit < 20000 ? 'text-rose-600' : 'text-slate-800'}`}>
@@ -175,7 +184,6 @@ export default function ExecutiveDashboard() {
           </div>
         </div>
 
-        {/* Mini Chart 7 Hari */}
         <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 flex flex-col justify-between">
           <div className="flex justify-between items-start mb-1">
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Arus Kas 7H</span>
@@ -198,12 +206,12 @@ export default function ExecutiveDashboard() {
         </div>
       </div>
 
-      {/* KALENDER TERPADU (MATERIAL YOU SLIDER) */}
+      {/* KALENDER TERPADU (DENGAN RIWAYAT FINANSIAL) */}
       <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
         <div className="p-5 md:p-6 border-b border-slate-50 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-indigo-50 rounded-xl"><Calendar size={20} className="text-indigo-600" /></div>
-            <h3 className="font-bold text-base text-slate-800">Kalender Terpadu</h3>
+            <h3 className="font-bold text-base text-slate-800">Riwayat & Jadwal</h3>
           </div>
           <span className="text-xs font-bold text-slate-400 bg-slate-50 px-3 py-1.5 rounded-full">{new Date(selectedDate).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}</span>
         </div>
@@ -218,10 +226,12 @@ export default function ExecutiveDashboard() {
             const isSelected = selectedDate === day.dateString;
             const hasEvent = events.some(e => e.deadline === day.dateString);
             const hasBill = bills.some(b => b.due_date === day.dateNum && (!b.last_paid_month || b.last_paid_month.substring(0,7) !== day.dateString.substring(0,7)));
+            const hasTrx = transactions.some(t => t.transaction_date === day.dateString && t.category !== 'System');
             
             return (
               <button
                 key={day.dateString}
+                data-today={day.isToday}
                 onClick={() => setSelectedDate(day.dateString)}
                 className={`min-w-[60px] flex flex-col items-center justify-center p-3 rounded-[1.25rem] transition-all shrink-0 ${isSelected ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}
               >
@@ -230,6 +240,7 @@ export default function ExecutiveDashboard() {
                 <div className="flex gap-1 mt-1.5 h-1.5">
                   {hasEvent && <div className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-white' : 'bg-amber-400'}`}></div>}
                   {hasBill && <div className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-blue-200' : 'bg-rose-400'}`}></div>}
+                  {hasTrx && <div className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-blue-300' : 'bg-slate-300'}`}></div>}
                 </div>
               </button>
             )
@@ -238,20 +249,22 @@ export default function ExecutiveDashboard() {
 
         {/* Selected Date Content */}
         <div className="bg-slate-50/50 p-5 md:p-6 min-h-[120px]">
-          {selectedEvents.length === 0 && selectedBills.length === 0 ? (
-            <div className="flex items-center justify-center h-full text-slate-400 text-sm font-medium py-4">Jadwal kosong pada tanggal ini.</div>
+          {selectedEvents.length === 0 && selectedBills.length === 0 && selectedTrx.length === 0 ? (
+            <div className="flex items-center justify-center h-full text-slate-400 text-sm font-medium py-4">Tidak ada agenda atau catatan keuangan.</div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              
               {/* Event List */}
               {selectedEvents.map(ev => (
-                <div key={ev.id} className="bg-white p-3.5 rounded-2xl border border-slate-100 flex items-start gap-3 shadow-sm">
+                <div key={ev.id} className="bg-white p-3.5 rounded-2xl border border-amber-100 flex items-start gap-3 shadow-sm">
                   <Circle size={16} className="mt-0.5 text-amber-500 shrink-0" />
                   <div>
                     <h4 className="font-bold text-sm text-slate-800">{ev.title}</h4>
-                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-1">{ev.type}</p>
+                    <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wider mt-1">{ev.type}</p>
                   </div>
                 </div>
               ))}
+              
               {/* Bill List */}
               {selectedBills.map(bill => (
                 <div key={bill.id} className="bg-white p-3.5 rounded-2xl border border-rose-100 flex items-start gap-3 shadow-sm">
@@ -262,15 +275,28 @@ export default function ExecutiveDashboard() {
                   </div>
                 </div>
               ))}
+
+              {/* Transaction List (Riwayat Keuangan) */}
+              {selectedTrx.map(trx => (
+                <div key={trx.id} className={`bg-white p-3.5 rounded-2xl border flex items-start gap-3 shadow-sm ${trx.type === 'expense' ? 'border-rose-100' : 'border-emerald-100'}`}>
+                  <div className={`mt-0.5 shrink-0 ${trx.type === 'expense' ? 'text-rose-500' : 'text-emerald-500'}`}>
+                    {trx.type === 'expense' ? <TrendingDown size={16}/> : <TrendingUp size={16}/>}
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-bold text-sm text-slate-800 truncate">{trx.description}</h4>
+                    <p className={`text-[10px] font-bold uppercase tracking-wider mt-1 ${trx.type === 'expense' ? 'text-rose-600' : 'text-emerald-600'}`}>
+                      {trx.type === 'expense' ? '-' : '+'} Rp {Number(trx.amount).toLocaleString('id-ID')}
+                    </p>
+                  </div>
+                </div>
+              ))}
+
             </div>
           )}
         </div>
       </div>
 
-      {/* OPERASIONAL & KEUANGAN - GRID 2 KOLOM RAPI */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-        
-        {/* Alokasi UKT */}
         <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 p-6 flex flex-col">
           <div className="flex justify-between items-center mb-4">
             <div className="flex items-center gap-2"><div className="p-1.5 bg-blue-50 rounded-lg"><Target size={18} className="text-blue-600" /></div><h3 className="font-bold text-sm text-slate-800">Alokasi UKT</h3></div>
@@ -290,7 +316,6 @@ export default function ExecutiveDashboard() {
           </div>
         </div>
 
-        {/* Status Tagihan (Compact) */}
         <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 p-6 flex flex-col">
           <div className="flex justify-between items-center mb-4">
             <div className="flex items-center gap-2"><div className="p-1.5 bg-rose-50 rounded-lg"><Receipt size={18} className="text-rose-600" /></div><h3 className="font-bold text-sm text-slate-800">Tagihan Aktif</h3></div>
@@ -307,7 +332,6 @@ export default function ExecutiveDashboard() {
           </div>
         </div>
 
-        {/* Agenda Mendesak (H-3) */}
         <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 p-6 flex flex-col">
           <div className="flex justify-between items-center mb-4">
             <div className="flex items-center gap-2"><div className="p-1.5 bg-amber-50 rounded-lg"><AlertTriangle size={18} className="text-amber-600" /></div><h3 className="font-bold text-sm text-slate-800">Radar H-3</h3></div>
@@ -323,7 +347,6 @@ export default function ExecutiveDashboard() {
           </div>
         </div>
 
-        {/* Buku Kasbon */}
         <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 p-6 flex flex-col">
           <div className="flex justify-between items-center mb-4">
             <div className="flex items-center gap-2"><div className="p-1.5 bg-indigo-50 rounded-lg"><Users size={18} className="text-indigo-600" /></div><h3 className="font-bold text-sm text-slate-800">Piutang</h3></div>
