@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { ArrowDownRight, ArrowUpRight, Scale, Plus, Loader2, Receipt, Trash2, Edit3, X, Download, Box, Check, Clock, Users, Wallet } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, Scale, Plus, Loader2, Receipt, Trash2, Edit3, X, Download, Box, Check, Clock, Users, Wallet, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 
 type Transaction = { id: string; type: 'income' | 'expense' | 'adjustment'; amount: number; description: string; category: string; transaction_date: string; };
@@ -18,6 +18,7 @@ export default function FinancialModule() {
   const [currentBalance, setCurrentBalance] = useState(0);
   const [loading, setLoading] = useState(true);
 
+  // Form States
   const [activeFormTab, setActiveFormTab] = useState<'flow' | 'exact'>('flow');
   const [editingTrxId, setEditingTrxId] = useState<string | null>(null);
   const [flowType, setFlowType] = useState<'expense' | 'income'>('expense');
@@ -27,18 +28,26 @@ export default function FinancialModule() {
   const [category, setCategory] = useState('Makan/Minum');
   const [submitting, setSubmitting] = useState(false);
 
+  // Mini Modules States
   const [billName, setBillName] = useState(''); const [billAmount, setBillAmount] = useState(''); const [billDueDate, setBillDueDate] = useState('1');
   const [sandboxName, setSandboxName] = useState(''); const [sandboxPrice, setSandboxPrice] = useState(''); const [sandboxDays, setSandboxDays] = useState('3');
   const [debtName, setDebtName] = useState(''); const [debtAmount, setDebtAmount] = useState('');
 
+  // Chart & Analysis States
   const [timeRange, setTimeRange] = useState<'7d' | '30d' | '6m' | '1y'>('7d');
-  
   const [chartData, setChartData] = useState<any[]>([]);
   const [categoryData, setCategoryData] = useState<any[]>([]);
   const [periodTotal, setPeriodTotal] = useState({ expense: 0, income: 0 });
 
+  // Full Calendar States
+  const currentDate = new Date();
+  const [calendarMonth, setCalendarMonth] = useState(currentDate.getMonth());
+  const [calendarYear, setCalendarYear] = useState(currentDate.getFullYear());
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState<string | null>(currentDate.toISOString().split('T')[0]);
+
   const expenseCategories = ['Makan/Minum', 'Transportasi', 'Kebutuhan Kos', 'Akademik/Tugas', 'Hiburan', 'Lainnya'];
   const incomeCategories = ['Kiriman Ortu', 'Gaji/Freelance', 'Pemberian/Bonus', 'Lainnya'];
+  const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
 
   useEffect(() => { fetchData(); }, []);
 
@@ -106,6 +115,7 @@ export default function FinancialModule() {
     }
     setSubmitting(false);
   };
+  
   const handleDeleteTransaction = async (id: string) => { if (!window.confirm("Hapus catatan ini?")) return; await supabase.from('transactions').delete().eq('id', id); if (editingTrxId === id) resetForm(); fetchData(); };
 
   const handleSaveBill = async (e: React.FormEvent) => {
@@ -126,6 +136,7 @@ export default function FinancialModule() {
       setDebtName(''); setDebtAmount(''); fetchData();
     }
   };
+  
   const handlePayDebt = async (debt: Debt) => {
     if (!window.confirm(`${debt.borrower_name} sudah bayar lunas? Saldo akan bertambah.`)) return;
     const { data: { user } } = await supabase.auth.getUser();
@@ -137,12 +148,31 @@ export default function FinancialModule() {
     }
   };
 
+  // Logic Kalender Bulanan
+  const getDaysInMonth = (y: number, m: number) => new Date(y, m + 1, 0).getDate();
+  const getFirstDayOfMonth = (y: number, m: number) => new Date(y, m, 1).getDay();
+  const generateCalendarDays = () => {
+    const days = [];
+    for (let i = 0; i < getFirstDayOfMonth(calendarYear, calendarMonth); i++) days.push(null);
+    for (let i = 1; i <= getDaysInMonth(calendarYear, calendarMonth); i++) {
+      const d = `${calendarYear}-${String(calendarMonth + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+      const dayTrx = transactions.filter(t => t.transaction_date === d && t.category !== 'System');
+      const expense = dayTrx.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
+      const income = dayTrx.filter(t => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0);
+      days.push({ 
+        date: i, fullDate: d, hasTransactions: dayTrx.length > 0, 
+        intensity: expense > 50000 ? 'bg-rose-500' : expense > 0 ? 'bg-rose-300' : income > 0 ? 'bg-emerald-400' : 'bg-transparent'
+      });
+    }
+    return days;
+  };
+
   if (loading) return <div className="h-64 flex items-center justify-center"><Loader2 className="animate-spin text-slate-400" size={32} /></div>;
 
   return (
     <div className="space-y-6">
       
-      {/* HEADER: LIVE BALANCE */}
+      {/* 1. HEADER: LIVE BALANCE */}
       <div className="bg-slate-900 text-white p-7 md:p-8 rounded-[2rem] shadow-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-6 overflow-hidden relative">
         <div className="relative z-10">
           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Live Balance Dashboard</p>
@@ -156,7 +186,7 @@ export default function FinancialModule() {
         </div>
       </div>
 
-      {/* INPUT TRANSAKSI & BUKU KAS (GRID 2 KOLOM) */}
+      {/* 2. AKSI UTAMA: INPUT TRANSAKSI & BUKU KAS (GRID 2 KOLOM) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
         {/* FORM INPUT */}
@@ -191,11 +221,11 @@ export default function FinancialModule() {
           </form>
         </div>
 
-        {/* BUKU KAS (HISTORY) */}
-        <div className="bg-white border border-slate-100 rounded-[2rem] p-7 shadow-sm flex flex-col h-[550px]">
+        {/* BUKU KAS (HISTORY TERBARU) */}
+        <div className="bg-white border border-slate-100 rounded-[2rem] p-7 shadow-sm flex flex-col h-[550px] lg:h-auto">
           <h3 className="font-bold text-sm uppercase tracking-widest text-slate-400 mb-4 border-b border-slate-50 pb-4 shrink-0">Buku Kas Terbaru</h3>
           <div className="space-y-3 overflow-y-auto flex-1 pr-2 [&::-webkit-scrollbar]:hidden">
-            {transactions.length === 0 ? <p className="text-center text-sm text-slate-400 mt-10">Belum ada transaksi.</p> : transactions.map((trx) => (
+            {transactions.slice(0, 15).length === 0 ? <p className="text-center text-sm text-slate-400 mt-10">Belum ada transaksi.</p> : transactions.slice(0, 15).map((trx) => (
               <div key={trx.id} className="flex justify-between items-center p-4 bg-slate-50/50 hover:bg-slate-50 border border-transparent hover:border-slate-100 rounded-2xl group transition-all">
                 <div className="flex items-center gap-4">
                   <div className={`p-2.5 rounded-xl ${trx.type === 'expense' ? 'bg-rose-100 text-rose-600' : trx.type === 'income' ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-800 text-white'}`}>{trx.type === 'expense' ? <ArrowDownRight size={18} /> : trx.type === 'income' ? <ArrowUpRight size={18} /> : <Scale size={18} />}</div>
@@ -217,11 +247,92 @@ export default function FinancialModule() {
         </div>
       </div>
 
-      {/* ANALISIS PERIODE (FULL WIDTH KARTU) */}
+      {/* 3. DETAIL & PELACAKAN: KALENDER FINANSIAL BULANAN LENGKAP */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* Kalender Utama */}
+        <div className="lg:col-span-2 bg-white border border-slate-100 rounded-[2rem] p-7 shadow-sm">
+          <div className="flex justify-between items-center mb-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-blue-50 rounded-xl"><Calendar size={20} className="text-blue-600" /></div>
+              <h3 className="font-bold text-lg text-slate-800">{monthNames[calendarMonth]} {calendarYear}</h3>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => { if(calendarMonth===0){setCalendarMonth(11); setCalendarYear(y=>y-1)} else setCalendarMonth(m=>m-1) }} className="p-2.5 bg-slate-50 text-slate-500 rounded-xl hover:bg-slate-100 transition-colors"><ChevronLeft size={18} /></button>
+              <button onClick={() => { if(calendarMonth===11){setCalendarMonth(0); setCalendarYear(y=>y+1)} else setCalendarMonth(m=>m+1) }} className="p-2.5 bg-slate-50 text-slate-500 rounded-xl hover:bg-slate-100 transition-colors"><ChevronRight size={18} /></button>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-7 gap-1 sm:gap-2 text-center mb-2">
+            {['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'].map(d => <div key={d} className="text-[10px] sm:text-xs font-bold text-slate-400 py-1 uppercase">{d}</div>)}
+          </div>
+          
+          <div className="grid grid-cols-7 gap-1 sm:gap-2">
+            {generateCalendarDays().map((day, idx) => (
+              day === null ? <div key={`empty-${idx}`} className="h-12 sm:h-16"></div> : (
+                <button 
+                  key={day.fullDate} 
+                  onClick={() => setSelectedCalendarDate(day.fullDate)} 
+                  className={`h-12 sm:h-16 flex flex-col items-center justify-start pt-2 rounded-2xl border transition-all ${selectedCalendarDate === day.fullDate ? 'border-blue-600 bg-blue-50 shadow-sm' : 'border-transparent bg-slate-50/50 hover:bg-slate-50'} ${day.hasTransactions ? 'cursor-pointer' : 'cursor-default'}`}
+                >
+                  <span className={`text-xs sm:text-sm font-bold ${selectedCalendarDate === day.fullDate ? 'text-blue-700' : 'text-slate-600'}`}>{day.date}</span>
+                  {day.hasTransactions && (
+                    <div className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full mt-1.5 ${day.intensity}`}></div>
+                  )}
+                </button>
+              )
+            ))}
+          </div>
+        </div>
+
+        {/* Detail Hari yang Dipilih (Berdampingan dengan kalender) */}
+        <div className="bg-white border border-slate-100 rounded-[2rem] p-7 shadow-sm h-[400px] lg:h-auto flex flex-col">
+           {selectedCalendarDate ? (
+             <>
+               <div className="flex justify-between items-center mb-6 border-b border-slate-50 pb-4">
+                 <h3 className="font-bold font-mono text-base text-slate-800">{selectedCalendarDate}</h3>
+                 <button onClick={()=>setSelectedCalendarDate(null)} className="text-slate-400 hover:bg-slate-100 p-1.5 rounded-lg transition-colors"><X size={16}/></button>
+               </div>
+               
+               <div className="flex gap-4 mb-5">
+                 <div className="flex-1 bg-rose-50/50 p-3 rounded-xl border border-rose-50">
+                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Total Keluar</p>
+                   <p className="font-mono text-sm font-black text-rose-600">Rp {transactions.filter(t => t.transaction_date === selectedCalendarDate && t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0).toLocaleString('id-ID')}</p>
+                 </div>
+                 <div className="flex-1 bg-emerald-50/50 p-3 rounded-xl border border-emerald-50">
+                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Total Masuk</p>
+                   <p className="font-mono text-sm font-black text-emerald-600">Rp {transactions.filter(t => t.transaction_date === selectedCalendarDate && t.type === 'income').reduce((s, t) => s + Number(t.amount), 0).toLocaleString('id-ID')}</p>
+                 </div>
+               </div>
+
+               <div className="overflow-y-auto flex-1 pr-2 space-y-2 [&::-webkit-scrollbar]:hidden">
+                 {transactions.filter(t => t.transaction_date === selectedCalendarDate).length === 0 ? (
+                   <p className="text-xs text-slate-400 text-center py-6">Tidak ada transaksi pada tanggal ini.</p>
+                 ) : transactions.filter(t => t.transaction_date === selectedCalendarDate).map(trx => (
+                   <div key={trx.id} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl">
+                     <span className="text-xs font-bold text-slate-700 truncate pr-2">{trx.description}</span>
+                     <span className={`text-xs font-mono font-black shrink-0 ${trx.type === 'expense' ? 'text-rose-600' : trx.type === 'income' ? 'text-emerald-600' : 'text-slate-600'}`}>
+                       {trx.type==='expense'?'-':trx.type==='income'?'+':'='} {Number(trx.amount).toLocaleString('id-ID')}
+                     </span>
+                   </div>
+                 ))}
+               </div>
+             </>
+           ) : (
+             <div className="h-full flex flex-col items-center justify-center text-slate-400 text-center py-10 opacity-60">
+               <Calendar size={48} className="mb-4 text-slate-300" />
+               <p className="text-sm font-medium">Pilih tanggal di kalender untuk melihat rincian.</p>
+             </div>
+           )}
+        </div>
+
+      </div>
+
+      {/* 4. REFLEKSI: ANALISIS PERIODE (FULL WIDTH KARTU) */}
       <div className="bg-white border border-slate-100 rounded-[2rem] p-7 shadow-sm flex flex-col">
         <div className="flex justify-between items-center mb-8 border-b border-slate-50 pb-4">
           <h3 className="font-bold text-lg text-slate-800">Analisis Finansial</h3>
-          <select value={timeRange} onChange={(e) => setTimeRange(e.target.value as any)} className="bg-slate-50 text-xs font-bold px-4 py-2 rounded-xl border-none outline-none cursor-pointer text-slate-600">
+          <select value={timeRange} onChange={(e) => setTimeRange(e.target.value as any)} className="bg-slate-50 text-xs font-bold px-4 py-2 rounded-xl border-none outline-none cursor-pointer text-slate-600 focus:ring-2 focus:ring-blue-100">
             <option value="7d">7 Hari Terakhir</option><option value="30d">30 Hari Terakhir</option><option value="6m">6 Bulan Terakhir</option><option value="1y">1 Tahun Terakhir</option>
           </select>
         </div>
@@ -279,7 +390,7 @@ export default function FinancialModule() {
         </div>
       </div>
 
-      {/* MINI MODUL: PIUTANG, SANDBOX, TAGIHAN */}
+      {/* 5. ALAT SPESIFIK: MINI MODUL PIUTANG, SANDBOX, TAGIHAN */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         
         {/* BUKU PIUTANG */}
