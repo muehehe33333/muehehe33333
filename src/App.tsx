@@ -5,106 +5,94 @@ import ExecutiveDashboard from './components/ExecutiveDashboard';
 import FinancialModule from './components/FinancialModule';
 import EventRegistry from './components/EventRegistry';
 import ContactDirectory from './components/ContactDirectory';
-import { LayoutDashboard, Wallet, Calendar, Users, LogOut, Menu, X, Command } from 'lucide-react';
+import DocumentVault from './components/DocumentVault';
+import { LayoutDashboard, Wallet, Calendar, Users, FolderLock, LogOut } from 'lucide-react';
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
-  const [activeView, setActiveView] = useState<'dashboard' | 'finance' | 'events' | 'network'>('dashboard');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true); // State baru untuk Splash Screen
+  const [activeView, setActiveView] = useState('dashboard');
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => setSession(session));
+    // Cek sesi saat awal muat
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setIsInitializing(false); // Matikan loading setelah selesai ngecek
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
     return () => subscription.unsubscribe();
   }, []);
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-  };
+  const handleLogout = async () => await supabase.auth.signOut();
 
   const navItems = [
-    { id: 'dashboard', label: 'Executive Dashboard', icon: <LayoutDashboard size={20} /> },
-    { id: 'finance', label: 'Financial Metrics', icon: <Wallet size={20} /> },
-    { id: 'events', label: 'Event Registry', icon: <Calendar size={20} /> },
-    { id: 'network', label: 'Contact Directory', icon: <Users size={20} /> }
+    { id: 'dashboard', label: 'Beranda', icon: <LayoutDashboard size={22} /> },
+    { id: 'finance', label: 'Keuangan', icon: <Wallet size={22} /> },
+    { id: 'events', label: 'Agenda', icon: <Calendar size={22} /> },
+    { id: 'network', label: 'Relasi', icon: <Users size={22} /> },
+    { id: 'docs', label: 'Dokumen', icon: <FolderLock size={22} /> }
   ];
+
+  // UI SPLASH SCREEN (Mencegah Flashing Layar Login)
+  if (isInitializing) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-slate-900">
+        <div className="animate-pulse flex flex-col items-center">
+          <div className="bg-emerald-500 w-16 h-16 rounded-2xl flex items-center justify-center font-black text-slate-900 text-2xl shadow-inner mb-4 rotate-12">HQ</div>
+          <p className="text-slate-400 text-xs font-bold tracking-widest uppercase">Memuat Sistem...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!session) return <Auth />;
 
   return (
-    <div className="relative flex h-screen bg-slate-50 overflow-hidden font-sans text-slate-900">
+    <div className="flex flex-col h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden">
       
-      {/* 1. BACKDROP OVERLAY (Latar Hitam Transparan saat Sidebar Terbuka) */}
-      {isSidebarOpen && (
-        <div 
-          onClick={() => setIsSidebarOpen(false)} 
-          className="fixed inset-0 bg-slate-900/60 z-40 transition-opacity backdrop-blur-sm lg:hidden"
-        />
-      )}
-
-      {/* 2. SIDEBAR (Off-Canvas Drawer) */}
-      <div className={`fixed inset-y-0 left-0 z-50 w-72 bg-slate-900 text-slate-300 transform transition-transform duration-300 ease-in-out shadow-2xl flex flex-col ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="p-6 border-b border-slate-800 flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <div className="bg-emerald-500 p-2 rounded-lg text-slate-900"><Command size={20} /></div>
-            <h2 className="text-xl font-black text-white tracking-tight">Personal HQ</h2>
+      {/* TOP HEADER */}
+      <header className="bg-slate-900 text-white px-5 py-4 flex justify-between items-center z-30 shadow-md">
+        <div className="flex items-center gap-3">
+          <div className="bg-emerald-500 w-9 h-9 rounded-full flex items-center justify-center font-black text-slate-900 text-sm shadow-inner">HQ</div>
+          <div>
+            <h1 className="font-bold text-lg tracking-tight leading-tight">Personal HQ</h1>
+            <p className="text-[10px] text-emerald-400 font-medium">Sistem Operasional Aktif</p>
           </div>
-          <button onClick={() => setIsSidebarOpen(false)} className="text-slate-400 hover:text-white p-1 rounded-md transition-colors"><X size={20} /></button>
         </div>
+        <button onClick={handleLogout} className="p-2 bg-slate-800 text-slate-300 rounded-full hover:bg-red-500 hover:text-white transition-colors">
+          <LogOut size={16}/>
+        </button>
+      </header>
 
-        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-          {navItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => { setActiveView(item.id as any); setIsSidebarOpen(false); }}
-              className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all font-bold text-sm ${
-                activeView === item.id ? 'bg-slate-800 text-white shadow-md' : 'hover:bg-slate-800/50 hover:text-white'
-              }`}
-            >
-              {item.icon} {item.label}
-            </button>
-          ))}
-        </nav>
+      {/* MAIN CONTENT AREA */}
+      <main className="flex-1 overflow-y-auto pb-24 pt-4 px-4 md:px-8">
+        <div className="max-w-xl mx-auto h-full">
+          {activeView === 'dashboard' && <ExecutiveDashboard />}
+          {activeView === 'finance' && <FinancialModule />}
+          {activeView === 'events' && <EventRegistry />}
+          {activeView === 'network' && <ContactDirectory />}
+          {activeView === 'docs' && <DocumentVault />}
+        </div>
+      </main>
 
-        <div className="p-4 border-t border-slate-800">
-          <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-colors rounded-xl text-sm font-bold">
-            <LogOut size={16} /> Keluar Sistem
+      {/* BOTTOM NAVIGATION */}
+      <nav className="fixed bottom-0 w-full bg-white border-t border-slate-200 flex justify-around items-center h-16 sm:h-20 z-50 px-2 shadow-[0_-10px_20px_-5px_rgb(0,0,0,0.05)] pb-safe-area">
+        {navItems.map(item => (
+          <button
+            key={item.id}
+            onClick={() => setActiveView(item.id)}
+            className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-all ${activeView === item.id ? 'text-emerald-600 -translate-y-1' : 'text-slate-400 hover:text-slate-600'}`}
+          >
+            {item.icon}
+            <span className={`text-[10px] ${activeView === item.id ? 'font-black' : 'font-semibold'}`}>{item.label}</span>
           </button>
-        </div>
-      </div>
+        ))}
+      </nav>
 
-      {/* 3. MAIN CONTENT AREA */}
-      <div className="flex-1 flex flex-col h-full w-full overflow-hidden">
-        
-        {/* Topbar Navigation */}
-        <div className="bg-white/80 backdrop-blur-md border-b border-slate-200 px-4 md:px-8 py-4 flex items-center justify-between sticky top-0 z-30 shadow-sm">
-          <div className="flex items-center gap-4">
-            <button 
-              onClick={() => setIsSidebarOpen(true)} 
-              className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors shadow-sm"
-            >
-              <Menu size={20} />
-            </button>
-            <h1 className="font-black text-lg md:text-xl text-slate-900 tracking-tight capitalize">
-              {navItems.find(i => i.id === activeView)?.label}
-            </h1>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="hidden md:inline-block px-3 py-1 bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase tracking-widest rounded-full">System Online</span>
-          </div>
-        </div>
-
-        {/* Dynamic View Injection */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 relative">
-          <div className="max-w-7xl mx-auto">
-            {activeView === 'dashboard' && <ExecutiveDashboard />}
-            {activeView === 'finance' && <FinancialModule />}
-            {activeView === 'events' && <EventRegistry />}
-            {activeView === 'network' && <ContactDirectory />}
-          </div>
-        </div>
-        
-      </div>
     </div>
   );
 }
