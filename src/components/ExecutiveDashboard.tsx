@@ -58,7 +58,8 @@ export default function ExecutiveDashboard() {
       }
     }
 
-    const { data: trx } = await supabase.from('transactions').select('*').eq('user_id', user.id).order('transaction_date', { ascending: false });
+    // FIX: Tambahan order('created_at') agar sinkron 100% dengan tab Finansial
+    const { data: trx } = await supabase.from('transactions').select('*').eq('user_id', user.id).order('transaction_date', { ascending: false }).order('created_at', { ascending: false });
     if (trx) {
       setTransactions(trx);
       let runningBalance = 0;
@@ -100,7 +101,7 @@ export default function ExecutiveDashboard() {
   };
 
   const handlePayUKT = async (semester: number) => {
-    if (semester !== ukt.paid_semesters + 1) return alert('Harap lunasi semester secara berurutan.');
+    if (semester !== ukt.paid_semesters + 1) return window.alert('Harap lunasi semester secara berurutan.');
     if (!window.confirm(`Catat pelunasan UKT Semester ${semester} sebesar Rp 3.500.000?`)) return;
     
     setProcessing(true);
@@ -123,8 +124,8 @@ export default function ExecutiveDashboard() {
     e.preventDefault();
     setProcessing(true);
     if (editType === 'event') await supabase.from('academic_events').update({ title: editData.title, deadline: editData.deadline }).eq('id', editData.id);
-    if (editType === 'bill') await supabase.from('recurring_bills').update({ name: editData.name, amount: editData.amount }).eq('id', editData.id);
-    if (editType === 'trx') await supabase.from('transactions').update({ description: editData.description, amount: editData.amount }).eq('id', editData.id);
+    if (editType === 'bill') await supabase.from('recurring_bills').update({ name: editData.name, amount: Number(editData.amount) }).eq('id', editData.id);
+    if (editType === 'trx') await supabase.from('transactions').update({ description: editData.description, amount: Number(editData.amount) }).eq('id', editData.id);
     setIsModalOpen(false); fetchDashboardData(); setProcessing(false);
   };
   const handleDeleteItem = async (type: 'event'|'bill'|'trx', id: string) => {
