@@ -112,29 +112,38 @@ export default function EventRegistry() {
     fetchData(); 
   };
 
-  // --- TODO HANDLERS ---
+  // --- TODO HANDLERS (DIPERBAIKI) ---
   const handleAddTodo = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTask.trim()) return;
     setAddingTodo(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      await supabase.from('todos').insert({ user_id: user.id, task: newTask.trim() });
+      const { data, error } = await supabase.from('todos')
+        .insert({ user_id: user.id, task: newTask.trim(), is_completed: false })
+        .select()
+        .single();
+      
+      if (error) {
+        alert(`Gagal menambah To-Do. Pesan Error: ${error.message}`);
+      } else if (data) {
+        setTodos([data, ...todos]); // Tampilkan langsung di layar
+      }
       setNewTask('');
-      fetchData();
     }
     setAddingTodo(false);
   };
 
   const toggleTodo = async (id: string, currentStatus: boolean) => {
-    // Optimistic UI update
     setTodos(todos.map(t => t.id === id ? { ...t, is_completed: !currentStatus } : t));
-    await supabase.from('todos').update({ is_completed: !currentStatus }).eq('id', id);
+    const { error } = await supabase.from('todos').update({ is_completed: !currentStatus }).eq('id', id);
+    if (error) alert(`Gagal mengubah status To-Do: ${error.message}`);
   };
 
   const deleteTodo = async (id: string) => {
     setTodos(todos.filter(t => t.id !== id));
-    await supabase.from('todos').delete().eq('id', id);
+    const { error } = await supabase.from('todos').delete().eq('id', id);
+    if (error) alert(`Gagal menghapus To-Do: ${error.message}`);
   };
 
   // --- CALENDAR LOGIC ---
@@ -276,9 +285,9 @@ export default function EventRegistry() {
             <input 
               type="text" value={newTask} onChange={(e) => setNewTask(e.target.value)} 
               placeholder="Tugas kecil hari ini..." 
-              className="flex-1 px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-100" 
+              className="flex-1 px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-100 outline-none" 
             />
-            <button type="submit" disabled={addingTodo || !newTask.trim()} className="p-3 bg-slate-800 text-white rounded-xl hover:bg-slate-900 transition-colors disabled:opacity-50">
+            <button type="submit" disabled={addingTodo || !newTask.trim()} className="p-3 bg-slate-800 text-white rounded-xl hover:bg-slate-900 transition-colors disabled:opacity-50 shadow-sm">
               {addingTodo ? <Loader2 size={20} className="animate-spin" /> : <Plus size={20} />}
             </button>
           </form>
@@ -338,25 +347,25 @@ export default function EventRegistry() {
 
       </div>
 
-      {/* OVERLAY LACI BAWAH / MODAL FORM (Z-INDEX 999 SUPER TINGGI) */}
+      {/* OVERLAY LACI BAWAH / MODAL FORM (Z-INDEX 999 SUPER TINGGI & PADDING BAWAH EKSTRA) */}
       {isFormOpen && (
         <div className="fixed inset-0 z-[999] flex items-end sm:items-center justify-center bg-slate-900/60 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-300">
-          <div className="bg-white w-full max-w-md rounded-t-[2rem] sm:rounded-[2rem] shadow-2xl animate-in slide-in-from-bottom-full sm:zoom-in-95 p-7 pb-10 sm:pb-7 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white w-full max-w-md rounded-t-[2rem] sm:rounded-[2rem] shadow-2xl animate-in slide-in-from-bottom-full sm:zoom-in-95 p-7 pb-24 sm:pb-7 max-h-[90vh] overflow-y-auto">
             <form onSubmit={handleSubmitEvent} className="space-y-4">
               <div className="flex justify-between items-center mb-6 border-b border-slate-50 pb-4">
                 <h4 className="font-bold text-base text-slate-800">{editingId ? 'Edit Agenda' : 'Tambah Agenda Baru'}</h4>
                 <button type="button" onClick={resetForm} className="text-slate-400 hover:text-slate-600 bg-slate-50 p-2 rounded-xl"><X size={18}/></button>
               </div>
               
-              <div><label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">Nama Tugas / Acara <span className="text-rose-500">*</span></label><input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Wajib diisi..." className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-100" required /></div>
-              <div><label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">Deskripsi & Link (Opsional)</label><textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Catatan tambahan, link GMeet, dll..." rows={3} className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-100 resize-none"></textarea></div>
+              <div><label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">Nama Tugas / Acara <span className="text-rose-500">*</span></label><input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Wajib diisi..." className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-100 outline-none" required /></div>
+              <div><label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">Deskripsi & Link (Opsional)</label><textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Catatan tambahan, link GMeet, dll..." rows={3} className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-100 resize-none outline-none"></textarea></div>
               
               <div className="grid grid-cols-2 gap-3">
-                <div><label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">Kategori</label><select value={type} onChange={(e) => setType(e.target.value as EventType)} className="w-full px-3 py-3 bg-slate-50 border-none rounded-xl text-xs font-bold focus:ring-2 focus:ring-blue-100 text-slate-700"><option value="tugas">Tugas</option><option value="praktikum">Praktikum</option><option value="ujian">Ujian</option><option value="bootcamp">Bootcamp</option><option value="hackathon">Hackathon</option><option value="proyek">Proyek</option><option value="lainnya">Lainnya</option></select></div>
-                <div><label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">Prioritas</label><select value={priority} onChange={(e) => setPriority(e.target.value as any)} className="w-full px-3 py-3 bg-slate-50 border-none rounded-xl text-xs font-bold focus:ring-2 focus:ring-blue-100 text-slate-700"><option value="low">Rendah</option><option value="medium">Sedang</option><option value="high">Urgent</option></select></div>
+                <div><label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">Kategori</label><select value={type} onChange={(e) => setType(e.target.value as EventType)} className="w-full px-3 py-3 bg-slate-50 border-none rounded-xl text-xs font-bold focus:ring-2 focus:ring-blue-100 text-slate-700 outline-none"><option value="tugas">Tugas</option><option value="praktikum">Praktikum</option><option value="ujian">Ujian</option><option value="bootcamp">Bootcamp</option><option value="hackathon">Hackathon</option><option value="proyek">Proyek</option><option value="lainnya">Lainnya</option></select></div>
+                <div><label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">Prioritas</label><select value={priority} onChange={(e) => setPriority(e.target.value as any)} className="w-full px-3 py-3 bg-slate-50 border-none rounded-xl text-xs font-bold focus:ring-2 focus:ring-blue-100 text-slate-700 outline-none"><option value="low">Rendah</option><option value="medium">Sedang</option><option value="high">Urgent</option></select></div>
               </div>
               
-              <div><label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">Tenggat Waktu (Deadline) <span className="text-rose-500">*</span></label><input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-bold text-slate-700 focus:ring-2 focus:ring-blue-100" required /></div>
+              <div><label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">Tenggat Waktu (Deadline) <span className="text-rose-500">*</span></label><input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-bold text-slate-700 focus:ring-2 focus:ring-blue-100 outline-none" required /></div>
               
               <button type="submit" disabled={submitting} className={`w-full text-white font-bold py-3.5 rounded-xl transition-colors flex items-center justify-center gap-2 mt-4 shadow-lg text-sm ${editingId ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-500/20' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-600/20'}`}>
                 {submitting ? <Loader2 size={18} className="animate-spin" /> : editingId ? <Edit3 size={18} /> : <Plus size={18} />} 
