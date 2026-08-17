@@ -283,7 +283,7 @@ export default function FinancialModule() {
           </div>
         </div>
 
-        {/* ANALISIS PERIODE (Fixed Height Issue) */}
+        {/* ANALISIS PERIODE */}
         <div className="lg:col-span-2 bg-white border border-slate-100 rounded-[2rem] p-6 sm:p-7 shadow-sm flex flex-col h-auto lg:h-[500px]">
           <div className="flex justify-between items-center mb-6 border-b border-slate-50 pb-4 shrink-0">
             <h3 className="font-bold text-lg text-slate-800">Analisis</h3>
@@ -599,10 +599,10 @@ export default function FinancialModule() {
         </div>
       </div>
 
-      {/* OVERLAY LACI BAWAH / MODAL TRANSAKSI */}
+      {/* OVERLAY LACI BAWAH / MODAL TRANSAKSI (Z-INDEX 999 & PADDING BAWAH) */}
       {isTrxModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/40 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-300">
-          <div className="bg-white w-full max-w-md rounded-t-[2rem] sm:rounded-[2rem] shadow-2xl animate-in slide-in-from-bottom-full sm:zoom-in-95 p-7 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-[999] flex items-end sm:items-center justify-center bg-slate-900/40 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-300">
+          <div className="bg-white w-full max-w-md rounded-t-[2rem] sm:rounded-[2rem] shadow-2xl animate-in slide-in-from-bottom-full sm:zoom-in-95 p-7 pb-24 sm:pb-7 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6 border-b border-slate-50 pb-4">
               <h4 className="font-bold text-base text-slate-800">{editingTrxId ? 'Edit Transaksi' : 'Catat Transaksi'}</h4>
               <button type="button" onClick={resetTrxForm} className="text-slate-400 hover:text-slate-600 bg-slate-50 p-2 rounded-xl"><X size={18}/></button>
@@ -620,18 +620,18 @@ export default function FinancialModule() {
                     <button type="button" onClick={() => {setFlowType('expense'); setCategory(expenseCategories[0]);}} className={`py-3 text-sm font-bold rounded-xl border-2 transition-all ${flowType === 'expense' ? 'border-rose-500 bg-rose-50 text-rose-700' : 'border-transparent bg-slate-50 text-slate-500 hover:bg-slate-100'}`}>Keluar</button>
                     <button type="button" onClick={() => {setFlowType('income'); setCategory(incomeCategories[0]);}} className={`py-3 text-sm font-bold rounded-xl border-2 transition-all ${flowType === 'income' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-transparent bg-slate-50 text-slate-500 hover:bg-slate-100'}`}>Masuk</button>
                   </div>
-                  <div><label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">Tanggal</label><input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-100" required /></div>
-                  <div><label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">Nominal (Rp)</label><input type="text" inputMode="numeric" value={amount ? Number(amount.replace(/[^0-9]/g, '')).toLocaleString('id-ID') : ''} onChange={(e) => setAmount(e.target.value)} placeholder="0" className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-lg font-black font-mono focus:ring-2 focus:ring-blue-100" required /></div>
-                  <div><label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">Kategori</label><select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-100">{(flowType === 'expense' ? expenseCategories : incomeCategories).map(c => <option key={c} value={c}>{c}</option>)}</select></div>
-                  <div><label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">Judul Transaksi <span className="text-rose-500">*</span></label><input type="text" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Misal: Makan Siang" className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-100" required /></div>
-                  <div><label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">Catatan Opsional</label><textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Misal: Di warteg bareng Budi..." rows={2} className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-100 resize-none"></textarea></div>
+                  <div><label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">Tanggal</label><input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-100 outline-none" required /></div>
+                  <div><label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">Nominal (Rp)</label><input type="text" inputMode="numeric" value={amount ? Number(amount.replace(/[^0-9]/g, '')).toLocaleString('id-ID') : ''} onChange={(e) => setAmount(e.target.value)} placeholder="0" className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-lg font-black font-mono focus:ring-2 focus:ring-blue-100 outline-none" required /></div>
+                  <div><label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">Kategori</label><select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-100 outline-none">{(flowType === 'expense' ? expenseCategories : incomeCategories).map(c => <option key={c} value={c}>{c}</option>)}</select></div>
+                  <div><label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">Judul Transaksi <span className="text-rose-500">*</span></label><input type="text" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Misal: Makan Siang" className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-100 outline-none" required /></div>
+                  <div><label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">Catatan Opsional</label><textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Misal: Di warteg bareng Budi..." rows={2} className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-100 resize-none outline-none"></textarea></div>
                 </>
               )}
               {activeFormTab === 'exact' && (
                 <>
                   <div className="bg-blue-50 text-blue-800 text-[11px] p-4 rounded-xl mb-4 leading-relaxed font-medium border border-blue-100">Gunakan fitur ini jika ada selisih perhitungan, untuk menyamakan saldo sistem dengan isi dompet asli Anda.</div>
-                  <div><label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">Tanggal</label><input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-100" required /></div>
-                  <div><label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">Saldo Riil Saat Ini (Rp)</label><input type="text" inputMode="numeric" value={amount ? Number(amount.replace(/[^0-9]/g, '')).toLocaleString('id-ID') : ''} onChange={(e) => setAmount(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-lg font-black font-mono focus:ring-2 focus:ring-blue-100" required /></div>
+                  <div><label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">Tanggal</label><input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-100 outline-none" required /></div>
+                  <div><label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">Saldo Riil Saat Ini (Rp)</label><input type="text" inputMode="numeric" value={amount ? Number(amount.replace(/[^0-9]/g, '')).toLocaleString('id-ID') : ''} onChange={(e) => setAmount(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-lg font-black font-mono focus:ring-2 focus:ring-blue-100 outline-none" required /></div>
                 </>
               )}
               <button type="submit" disabled={submitting} className={`w-full text-white font-bold py-3.5 rounded-xl transition-all mt-4 text-sm flex justify-center items-center gap-2 ${editingTrxId ? 'bg-amber-500 hover:bg-amber-600 shadow-lg shadow-amber-500/20' : 'bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-600/20'}`}>
