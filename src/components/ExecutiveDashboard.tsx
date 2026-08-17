@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { ShieldAlert, Activity, AlertTriangle, Target, TrendingDown, Calendar, Receipt, Lightbulb, Wallet, Users, TrendingUp, Circle, ArrowRight, Edit3, Trash2, X, Loader2 } from 'lucide-react';
-import { BarChart, Bar, ResponsiveContainer, Cell } from 'recharts';
+import { ShieldAlert, Activity, AlertTriangle, Target, TrendingDown, Calendar, Receipt, Lightbulb, Wallet, Users, TrendingUp, Circle, ArrowRight, Edit3, Trash2, X, Loader2, CheckCircle2, Circle as CircleOutline } from 'lucide-react';
+import { BarChart, Bar, ResponsiveContainer, Tooltip, XAxis } from 'recharts';
 
 export default function ExecutiveDashboard() {
   const [balance, setBalance] = useState(0);
@@ -11,6 +11,7 @@ export default function ExecutiveDashboard() {
   const [processing, setProcessing] = useState(false);
   
   const [events, setEvents] = useState<any[]>([]);
+  const [todos, setTodos] = useState<any[]>([]); 
   const [bills, setBills] = useState<any[]>([]);
   const [unpaidDebts, setUnpaidDebts] = useState<any[]>([]);
   const [transactions, setTransactions] = useState<any[]>([]);
@@ -47,7 +48,7 @@ export default function ExecutiveDashboard() {
     const { data: settings } = await supabase.from('user_settings').select('*').eq('user_id', user.id).single();
     if (settings) setEmergencyLock(settings.emergency_lock);
     
-    // Migrasi Logic UKT (Dari persentase ke 8 Semester)
+    // Migrasi Logic UKT
     const { data: uktData } = await supabase.from('financial_targets').select('*').eq('user_id', user.id).eq('type', 'ukt').single();
     if (uktData) {
       if (uktData.target_amount > 10) {
@@ -58,7 +59,7 @@ export default function ExecutiveDashboard() {
       }
     }
 
-    // FIX: Tambahan order('created_at') agar sinkron 100% dengan tab Finansial
+    // Ambil Data Transaksi
     const { data: trx } = await supabase.from('transactions').select('*').eq('user_id', user.id).order('transaction_date', { ascending: false }).order('created_at', { ascending: false });
     if (trx) {
       setTransactions(trx);
@@ -78,18 +79,24 @@ export default function ExecutiveDashboard() {
       }).reverse();
       
       let sumInc7d = 0; let sumExp7d = 0;
+      
       const chartData = last7Days.map(date => {
         const dailyExp = trx.filter(t => t.type === 'expense' && t.category !== 'System' && t.transaction_date === date).reduce((sum, t) => sum + Number(t.amount), 0);
         const dailyInc = trx.filter(t => t.type === 'income' && t.category !== 'System' && t.transaction_date === date).reduce((sum, t) => sum + Number(t.amount), 0);
         sumExp7d += dailyExp; sumInc7d += dailyInc;
-        return { date: date.substring(8, 10), Total: dailyExp };
+        return { date: date.substring(8, 10), Masuk: dailyInc, Keluar: dailyExp };
       });
+      
       setMiniChartData(chartData);
       setNet7d({ income: sumInc7d, expense: sumExp7d, total: sumInc7d - sumExp7d });
     }
 
+    // Ambil Agenda Mendesak & To-Do List Harian
     const { data: evts } = await supabase.from('academic_events').select('*').eq('user_id', user.id).neq('status', 'completed');
     if (evts) setEvents(evts);
+    
+    const { data: tds } = await supabase.from('todos').select('*').eq('user_id', user.id).eq('is_completed', false).order('created_at', { ascending: false });
+    if (tds) setTodos(tds);
 
     const { data: bls } = await supabase.from('recurring_bills').select('*').eq('user_id', user.id);
     if (bls) setBills(bls);
@@ -135,6 +142,11 @@ export default function ExecutiveDashboard() {
     if (type === 'trx') await supabase.from('transactions').delete().eq('id', id);
     fetchDashboardData();
   };
+  
+  const toggleTodoDashboard = async (id: string) => {
+    setTodos(todos.filter(t => t.id !== id)); 
+    await supabase.from('todos').update({ is_completed: true }).eq('id', id);
+  };
 
   const disposableIncome = balance - emergencyLock;
   const dailyLimit = disposableIncome > 0 ? disposableIncome / 30 : 0;
@@ -161,7 +173,6 @@ export default function ExecutiveDashboard() {
   const selectedTrx = transactions.filter(t => t.transaction_date === selectedDate && t.category !== 'System');
   
   const urgentEvents = events.filter(e => Math.ceil((new Date(e.deadline).getTime() - new Date().setHours(0,0,0,0)) / (1000 * 60 * 60 * 24)) <= 3).slice(0, 3);
-  const unpaidBillsGlobal = bills.filter(b => !b.last_paid_month || b.last_paid_month.substring(0,7) !== new Date().toISOString().substring(0,7));
 
   if (loading) return (
     <div className="space-y-6">
@@ -212,6 +223,7 @@ export default function ExecutiveDashboard() {
           </div>
         </div>
 
+        {/* GRAFIK ARUS KAS 7H DIPERBARUI */}
         <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 flex flex-col justify-between">
           <div className="flex justify-between items-start mb-1">
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Arus Kas 7H</span>
@@ -222,12 +234,19 @@ export default function ExecutiveDashboard() {
               {net7d.total >= 0 ? '+' : ''}Rp {(net7d.total/1000).toLocaleString('id-ID')}k
             </span>
           </div>
-          <div className="h-12 w-full mt-auto">
+          <div className="h-24 w-full mt-auto">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={miniChartData}>
-                <Bar dataKey="Total" radius={[4, 4, 0, 0]}>
-                  {miniChartData.map((entry, index) => (<Cell key={`cell-${index}`} fill={entry.Total > dailyLimit ? '#ef4444' : '#cbd5e1'} />))}
-                </Bar>
+              <BarChart data={miniChartData} margin={{top: 10, right: 0, left: 0, bottom: 0}}>
+                <XAxis dataKey="date" stroke="#cbd5e1" fontSize={9} tickLine={false} axisLine={false} />
+                <Tooltip 
+                  cursor={{fill: '#f8fafc'}} 
+                  contentStyle={{borderRadius:'12px', border:'none', boxShadow:'0 4px 15px rgba(0,0,0,0.05)', padding: '8px'}}
+                  labelStyle={{color: '#64748b', fontWeight: 'bold', marginBottom: '4px', fontSize: '10px'}}
+                  itemStyle={{fontSize: '11px', fontWeight: 'bold'}}
+                  formatter={(value: any) => `Rp ${(Number(value)/1000).toLocaleString('id-ID')}k`}
+                />
+                <Bar dataKey="Masuk" fill="#10b981" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Keluar" fill="#f43f5e" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -338,10 +357,10 @@ export default function ExecutiveDashboard() {
         </div>
       </div>
 
-      {/* OPERASIONAL KEUANGAN - GRID 2 KOLOM RAPI */}
+      {/* OPERASIONAL KEUANGAN & JADWAL - GRID RAPI */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
         
-        {/* UKT 8 SEMESTER BOXES (Revolusi UKT) */}
+        {/* UKT 8 SEMESTER BOXES */}
         <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 p-6 flex flex-col">
           <div className="flex justify-between items-center mb-5 border-b border-slate-50 pb-4">
             <div className="flex items-center gap-2"><div className="p-1.5 bg-blue-50 rounded-lg"><Target size={18} className="text-blue-600" /></div><h3 className="font-bold text-sm text-slate-800">Pembayaran UKT</h3></div>
@@ -367,17 +386,21 @@ export default function ExecutiveDashboard() {
           <p className="text-[10px] text-center font-bold text-slate-400 uppercase mt-auto pt-4">Ketuk semester berwarna putih untuk melunasi.</p>
         </div>
 
-        {/* Status Tagihan */}
+        {/* TO-DO LIST HARIAN */}
         <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 p-6 flex flex-col">
           <div className="flex justify-between items-center mb-4 border-b border-slate-50 pb-4">
-            <div className="flex items-center gap-2"><div className="p-1.5 bg-rose-50 rounded-lg"><Receipt size={18} className="text-rose-600" /></div><h3 className="font-bold text-sm text-slate-800">Tagihan Aktif</h3></div>
-            <span className="text-xs font-bold text-slate-400">{unpaidBillsGlobal.length} Tertunda</span>
+            <div className="flex items-center gap-2"><div className="p-1.5 bg-indigo-50 rounded-lg"><CheckCircle2 size={18} className="text-indigo-600" /></div><h3 className="font-bold text-sm text-slate-800">Tugas Harian</h3></div>
+            <span className="text-xs font-bold text-slate-400">{todos.length} Pending</span>
           </div>
-          <div className="space-y-2 mt-auto">
-            {unpaidBillsGlobal.length === 0 ? <p className="text-xs text-center text-emerald-600 bg-emerald-50 py-3 rounded-xl font-bold">Semua Lunas.</p> : unpaidBillsGlobal.slice(0,3).map(bill => (
-              <div key={bill.id} className="flex justify-between items-center p-3 bg-rose-50/50 rounded-xl">
-                <span className="font-bold text-xs text-rose-900 truncate">{bill.name}</span>
-                <span className="text-xs font-black text-rose-700 shrink-0">Rp {(bill.amount/1000).toLocaleString('id-ID')}k</span>
+          <div className="space-y-2 mt-auto overflow-y-auto max-h-[160px] pr-1 [&::-webkit-scrollbar]:hidden">
+            {todos.length === 0 ? <p className="text-xs text-center text-emerald-600 bg-emerald-50 py-3 rounded-xl font-bold">Semua tugas selesai!</p> : todos.map(todo => (
+              <div key={todo.id} className="flex items-center justify-between p-3 bg-slate-50 border border-slate-100 rounded-xl group transition-all">
+                <div className="flex items-center gap-3 overflow-hidden">
+                  <button onClick={() => toggleTodoDashboard(todo.id)} className="shrink-0 text-slate-300 hover:text-emerald-500 transition-colors">
+                    <CircleOutline size={18} />
+                  </button>
+                  <span className="font-bold text-xs text-slate-800 truncate">{todo.task}</span>
+                </div>
               </div>
             ))}
           </div>
@@ -420,10 +443,10 @@ export default function ExecutiveDashboard() {
 
       </div>
 
-      {/* OVERLAY LACI BAWAH / MODAL EDIT GLOBAL */}
+      {/* OVERLAY LACI BAWAH / MODAL EDIT GLOBAL (Z-INDEX 999 & PADDING BAWAH) */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/40 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-300">
-          <div className="bg-white w-full max-w-md rounded-t-[2rem] sm:rounded-[2rem] shadow-2xl animate-in slide-in-from-bottom-full sm:zoom-in-95 p-7 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-[999] flex items-end sm:items-center justify-center bg-slate-900/60 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-300">
+          <div className="bg-white w-full max-w-md rounded-t-[2rem] sm:rounded-[2rem] shadow-2xl animate-in slide-in-from-bottom-full sm:zoom-in-95 p-7 pb-24 sm:pb-7 max-h-[90vh] overflow-y-auto">
             <form onSubmit={handleSaveEdit} className="space-y-4">
               <div className="flex justify-between items-center mb-6 border-b border-slate-50 pb-4">
                 <h4 className="font-bold text-base text-slate-800">Edit Data Cepat</h4>
@@ -449,7 +472,7 @@ export default function ExecutiveDashboard() {
                 </>
               )}
 
-              <button type="submit" disabled={processing} className="w-full bg-slate-800 text-white font-bold py-3.5 rounded-xl hover:bg-slate-900 transition-colors flex items-center justify-center gap-2 mt-4 text-sm">
+              <button type="submit" disabled={processing} className="w-full bg-slate-800 text-white font-bold py-3.5 rounded-xl hover:bg-slate-900 transition-colors flex items-center justify-center gap-2 mt-4 text-sm shadow-sm">
                 {processing ? <Loader2 size={18} className="animate-spin" /> : <Edit3 size={18} />} Simpan Perubahan
               </button>
             </form>
