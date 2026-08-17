@@ -170,24 +170,24 @@ export default function ContactDirectory() {
         </div>
       </div>
 
-      {/* OVERLAY LACI BAWAH / MODAL FORM */}
+      {/* OVERLAY LACI BAWAH / MODAL FORM (Z-INDEX 999 SUPER TINGGI & PADDING BAWAH EKSTRA) */}
       {isFormOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/40 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-300">
-          <div className="bg-white w-full max-w-md rounded-t-[2rem] sm:rounded-[2rem] shadow-2xl animate-in slide-in-from-bottom-full sm:zoom-in-95 p-7 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-[999] flex items-end sm:items-center justify-center bg-slate-900/60 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-300">
+          <div className="bg-white w-full max-w-md rounded-t-[2rem] sm:rounded-[2rem] shadow-2xl animate-in slide-in-from-bottom-full sm:zoom-in-95 p-7 pb-24 sm:pb-7 max-h-[90vh] overflow-y-auto">
             <form onSubmit={handleSubmitContact} className="space-y-4">
               <div className="flex justify-between items-center mb-6 border-b border-slate-50 pb-4">
                 <h4 className="font-bold text-base text-slate-800">{editingId ? 'Edit Kontak' : 'Tambah Kontak Baru'}</h4>
                 <button type="button" onClick={resetForm} className="text-slate-400 hover:text-slate-600 bg-slate-50 p-2 rounded-xl"><X size={18}/></button>
               </div>
               
-              <div><label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">Nama Lengkap <span className="text-rose-500">*</span></label><input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Wajib diisi..." className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-100" required /></div>
-              <div><label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">Hubungan</label><select value={relationship} onChange={(e) => setRelationship(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-100 text-slate-700">{relationships.map(r => <option key={r} value={r}>{r}</option>)}</select></div>
-              <div><label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">Instansi / Kampus</label><input type="text" value={company} onChange={(e) => setCompany(e.target.value)} placeholder="Opsional..." className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-100" /></div>
+              <div><label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">Nama Lengkap <span className="text-rose-500">*</span></label><input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Wajib diisi..." className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-100 outline-none" required /></div>
+              <div><label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">Hubungan</label><select value={relationship} onChange={(e) => setRelationship(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-100 text-slate-700 outline-none">{relationships.map(r => <option key={r} value={r}>{r}</option>)}</select></div>
+              <div><label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">Instansi / Kampus</label><input type="text" value={company} onChange={(e) => setCompany(e.target.value)} placeholder="Opsional..." className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-100 outline-none" /></div>
               <div className="grid grid-cols-2 gap-3">
-                <div><label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">No. WhatsApp</label><input type="text" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="0812..." className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-100" /></div>
-                <div><label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">Email</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="@gmail..." className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-100" /></div>
+                <div><label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">No. WhatsApp</label><input type="text" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="0812..." className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-100 outline-none" /></div>
+                <div><label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">Email</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="@gmail..." className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-100 outline-none" /></div>
               </div>
-              <div><label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">Catatan Tambahan</label><textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Keahlian, dll..." rows={2} className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-100 resize-none"></textarea></div>
+              <div><label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">Catatan Tambahan</label><textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Keahlian, dll..." rows={2} className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-100 resize-none outline-none"></textarea></div>
               <button type="submit" disabled={submitting} className={`w-full text-white font-bold py-3.5 rounded-xl transition-all flex items-center justify-center gap-2 mt-4 text-sm ${editingId ? 'bg-amber-500 hover:bg-amber-600 shadow-lg shadow-amber-500/20' : 'bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-600/20'}`}>
                 {submitting ? <Loader2 size={18} className="animate-spin" /> : editingId ? <Edit3 size={18} /> : <Plus size={18} />} {editingId ? 'Simpan Perubahan' : 'Simpan Kontak'}
               </button>
