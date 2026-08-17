@@ -127,7 +127,7 @@ export default function EventRegistry() {
         .single();
       
       if (error) {
-        alert(`Gagal menambah To-Do. Pastikan RLS di Supabase sudah dimatikan. \nError: ${error.message}`);
+        alert(`Gagal menambah To-Do. Error: ${error.message}`);
       } else if (data) {
         setTodos([data, ...todos]); 
       }
@@ -293,7 +293,7 @@ export default function EventRegistry() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
         {/* TO-DO LIST HARIAN */}
-        <div className="bg-white border border-slate-100 rounded-[2rem] p-6 sm:p-7 shadow-sm flex flex-col h-[500px]">
+        <div className="bg-white border border-slate-100 rounded-[2rem] p-6 sm:p-7 shadow-sm flex flex-col h-[500px] lg:h-auto lg:min-h-[500px]">
           <h3 className="font-bold text-lg text-slate-800 mb-6 shrink-0 border-b border-slate-50 pb-4">To-Do List Harian</h3>
           
           <form onSubmit={handleAddTodo} className="flex gap-2 mb-4 shrink-0">
@@ -338,7 +338,7 @@ export default function EventRegistry() {
                   )}
                 </div>
 
-                {/* TOMBOL EDIT & DELETE (Tersembunyi jika sedang edit) */}
+                {/* TOMBOL EDIT & DELETE */}
                 {editingTodoId !== todo.id && (
                   <div className="flex gap-1 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity shrink-0">
                     {!todo.is_completed && (
@@ -353,8 +353,8 @@ export default function EventRegistry() {
           </div>
         </div>
 
-        {/* KALENDER BULANAN MINI */}
-        <div className="bg-white border border-slate-100 rounded-[2rem] p-6 sm:p-7 shadow-sm h-[500px] flex flex-col">
+        {/* KALENDER BULANAN MINI (MAMPU MELAR KE BAWAH) */}
+        <div className="bg-white border border-slate-100 rounded-[2rem] p-6 sm:p-7 shadow-sm flex flex-col h-fit min-h-[500px]">
           <div className="flex justify-between items-center mb-6 shrink-0">
             <h3 className="font-bold text-lg text-slate-800">{monthNames[calendarMonth]} {calendarYear}</h3>
             <div className="flex gap-2">
@@ -367,7 +367,7 @@ export default function EventRegistry() {
             {['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'].map(d => <div key={d} className="text-[10px] sm:text-xs font-bold text-slate-400 py-1 uppercase">{d}</div>)}
           </div>
           
-          <div className="grid grid-cols-7 gap-1 overflow-y-auto flex-1 [&::-webkit-scrollbar]:hidden">
+          <div className="grid grid-cols-7 gap-1">
             {generateCalendarDays().map((day, idx) => (
               day === null ? <div key={`empty-${idx}`} className="h-10 sm:h-14"></div> : (
                 <button 
@@ -383,6 +383,36 @@ export default function EventRegistry() {
               )
             ))}
           </div>
+
+          {/* DETAIL KALENDER SAAT DITEKAN (DIMUNCULKAN KEMBALI) */}
+          {selectedDate && (
+            <div className="mt-6 border-t border-slate-100 pt-6 animate-in fade-in duration-300">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-bold font-mono text-sm sm:text-base text-slate-800 bg-slate-100 px-3 py-1 rounded-lg">{selectedDate}</h3>
+                <button onClick={() => setSelectedDate(null)} className="text-slate-400 hover:text-rose-500 p-1.5 bg-slate-50 hover:bg-rose-50 rounded-lg transition-colors"><X size={16} /></button>
+              </div>
+              <div className="space-y-3 max-h-[250px] overflow-y-auto pr-1 [&::-webkit-scrollbar]:hidden">
+                {events.filter(e => e.deadline === selectedDate).length === 0 ? (
+                  <p className="text-sm text-slate-400 p-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-center">Jadwal kosong pada tanggal ini.</p>
+                ) : events.filter(e => e.deadline === selectedDate).map(event => (
+                  <div key={event.id} className="p-4 rounded-[1.5rem] border bg-slate-50/80 border-slate-100 flex items-start justify-between gap-3 group">
+                    <div className="flex items-start gap-3 min-w-0">
+                      <div className={`mt-0.5 shrink-0 ${event.status === 'completed' ? 'text-emerald-500' : 'text-amber-500'}`}><Circle size={16} fill="currentColor" className="opacity-20"/></div>
+                      <div>
+                        <h4 className={`font-bold text-sm ${event.status === 'completed' ? 'line-through text-slate-400' : 'text-slate-900'}`}>{event.title}</h4>
+                        {event.description && <p className="text-xs text-slate-500 mt-1.5 leading-relaxed line-clamp-2">{event.description}</p>}
+                      </div>
+                    </div>
+                    {/* Aksi di dalam Kalender Detail */}
+                    <div className="flex gap-2 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity shrink-0">
+                      <button onClick={() => handleOpenEdit(event)} className="text-slate-400 hover:text-blue-600 p-1.5 bg-white rounded-lg shadow-sm border border-slate-100"><Edit3 size={14} /></button>
+                      <button onClick={() => deleteEvent(event.id)} className="text-slate-400 hover:text-rose-600 p-1.5 bg-white rounded-lg shadow-sm border border-slate-100"><Trash2 size={14} /></button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
       </div>
