@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { Loader2, Plus, Calendar as CalendarIcon, Circle, ArrowRightCircle, Trash2, X, ChevronDown, ChevronUp, Flag, Tag, Clock, ArrowRight, Edit3, CheckCircle2, Circle as CircleOutline, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Loader2, Plus, Calendar as CalendarIcon, Circle, ArrowRightCircle, Trash2, X, ChevronDown, ChevronUp, Flag, Tag, Clock, ArrowRight, Edit3, CheckCircle2, Circle as CircleOutline, ChevronLeft, ChevronRight, Check } from 'lucide-react';
 
 type EventType = 'tugas' | 'praktikum' | 'ujian' | 'bootcamp' | 'hackathon' | 'proyek' | 'lainnya';
 
@@ -39,6 +39,8 @@ export default function EventRegistry() {
   // Todo States
   const [newTask, setNewTask] = useState('');
   const [addingTodo, setAddingTodo] = useState(false);
+  const [editingTodoId, setEditingTodoId] = useState<string | null>(null);
+  const [editTodoText, setEditTodoText] = useState('');
 
   // UI States
   const [activeFilter, setActiveFilter] = useState<EventType | 'semua'>('semua');
@@ -112,7 +114,7 @@ export default function EventRegistry() {
     fetchData(); 
   };
 
-  // --- TODO HANDLERS (DIPERBAIKI) ---
+  // --- TODO HANDLERS ---
   const handleAddTodo = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTask.trim()) return;
@@ -125,9 +127,9 @@ export default function EventRegistry() {
         .single();
       
       if (error) {
-        alert(`Gagal menambah To-Do. Pesan Error: ${error.message}`);
+        alert(`Gagal menambah To-Do. Pastikan RLS di Supabase sudah dimatikan. \nError: ${error.message}`);
       } else if (data) {
-        setTodos([data, ...todos]); // Tampilkan langsung di layar
+        setTodos([data, ...todos]); 
       }
       setNewTask('');
     }
@@ -138,6 +140,19 @@ export default function EventRegistry() {
     setTodos(todos.map(t => t.id === id ? { ...t, is_completed: !currentStatus } : t));
     const { error } = await supabase.from('todos').update({ is_completed: !currentStatus }).eq('id', id);
     if (error) alert(`Gagal mengubah status To-Do: ${error.message}`);
+  };
+
+  const handleEditTodo = (todo: TodoItem) => {
+    setEditingTodoId(todo.id);
+    setEditTodoText(todo.task);
+  };
+
+  const saveTodoEdit = async (id: string) => {
+    if (!editTodoText.trim()) return setEditingTodoId(null);
+    setTodos(todos.map(t => t.id === id ? { ...t, task: editTodoText.trim() } : t));
+    setEditingTodoId(null);
+    const { error } = await supabase.from('todos').update({ task: editTodoText.trim() }).eq('id', id);
+    if (error) alert(`Gagal menyimpan perubahan: ${error.message}`);
   };
 
   const deleteTodo = async (id: string) => {
@@ -297,17 +312,42 @@ export default function EventRegistry() {
               <p className="text-center text-xs text-slate-400 mt-10">Bebas tugas! Nikmati waktu Anda.</p>
             ) : todos.map(todo => (
               <div key={todo.id} className={`flex items-center justify-between p-3.5 rounded-xl border transition-all group ${todo.is_completed ? 'bg-slate-50/50 border-slate-50 opacity-60' : 'bg-white border-slate-100 shadow-sm'}`}>
-                <div className="flex items-center gap-3 overflow-hidden">
+                
+                <div className="flex items-center gap-3 overflow-hidden flex-1">
                   <button onClick={() => toggleTodo(todo.id, todo.is_completed)} className={`shrink-0 transition-colors ${todo.is_completed ? 'text-emerald-500' : 'text-slate-300 hover:text-blue-500'}`}>
                     {todo.is_completed ? <CheckCircle2 size={20} /> : <CircleOutline size={20} />}
                   </button>
-                  <span className={`text-sm truncate transition-all ${todo.is_completed ? 'line-through text-slate-400 font-medium' : 'text-slate-700 font-bold'}`}>
-                    {todo.task}
-                  </span>
+
+                  {/* LOGIKA EDIT TO-DO */}
+                  {editingTodoId === todo.id ? (
+                    <div className="flex-1 flex items-center gap-2">
+                      <input 
+                        type="text" 
+                        value={editTodoText} 
+                        onChange={(e) => setEditTodoText(e.target.value)}
+                        className="flex-1 px-3 py-1 text-sm bg-white border border-blue-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-100"
+                        autoFocus
+                        onKeyDown={(e) => { if (e.key === 'Enter') saveTodoEdit(todo.id); if (e.key === 'Escape') setEditingTodoId(null); }}
+                      />
+                      <button onClick={() => saveTodoEdit(todo.id)} className="text-emerald-500 p-1 bg-emerald-50 rounded-lg"><Check size={14}/></button>
+                    </div>
+                  ) : (
+                    <span className={`text-sm truncate transition-all flex-1 ${todo.is_completed ? 'line-through text-slate-400 font-medium' : 'text-slate-700 font-bold'}`}>
+                      {todo.task}
+                    </span>
+                  )}
                 </div>
-                <button onClick={() => deleteTodo(todo.id)} className="text-slate-300 hover:text-rose-500 p-1 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity shrink-0">
-                  <X size={16} />
-                </button>
+
+                {/* TOMBOL EDIT & DELETE (Tersembunyi jika sedang edit) */}
+                {editingTodoId !== todo.id && (
+                  <div className="flex gap-1 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity shrink-0">
+                    {!todo.is_completed && (
+                      <button onClick={() => handleEditTodo(todo)} className="text-slate-300 hover:text-blue-600 p-1.5"><Edit3 size={16} /></button>
+                    )}
+                    <button onClick={() => deleteTodo(todo.id)} className="text-slate-300 hover:text-rose-500 p-1.5"><X size={16} /></button>
+                  </div>
+                )}
+
               </div>
             ))}
           </div>
